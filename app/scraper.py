@@ -83,7 +83,7 @@ class PriceScraper:
             "User-Agent": ua,
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
             "Accept-Language": "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7",
-            "Accept-Encoding": "gzip, deflate, br",
+            "Accept-Encoding": "gzip, deflate",
             "DNT": "1",
             "Connection": "keep-alive",
             "Upgrade-Insecure-Requests": "1",
@@ -437,7 +437,7 @@ class PriceScraper:
         price_max: Optional[float] = None,
         progress_callback=None,
     ) -> list[Product]:
-        """Search Google Shopping as a fallback."""
+        """Search Google Shopping (supports both tbm=shop and udm=28 redirect)."""
         self._handle_google_consent()
 
         params = {
@@ -474,96 +474,219 @@ class PriceScraper:
                 progress_callback(f"Durchsuche Google Shopping ({country.upper()})...", 60)
 
             resp = self.session.get(url, timeout=15)
+            logger.info(f"Google Shopping status: {resp.status_code}, final URL: {resp.url}")
+            logger.info(f"Response encoding: {resp.encoding}, length: {len(resp.text)}")
+
             if resp.status_code != 200:
-                _save_debug_html("google_error.html", resp.text, url)
+                _save_debug_html("google_error.html", resp.text, resp.url)
                 logger.warning(f"Google Shopping returned {resp.status_code}")
                 return []
 
-            soup = BeautifulSoup(resp.text, "lxml")
-            _save_debug_html("google_shopping.html", resp.text, url)
-
             # Check for CAPTCHA/block
-            if "sorry" in resp.url or resp.status_code == 429:
+            if "sorry" in resp.url or "/sorry/" in resp.url:
                 logger.warning("Google blocked with CAPTCHA")
+                _save_debug_html("google_captcha.html", resp.text, resp.url)
                 return []
 
-            # Extract products from Google Shopping
-            products = self._parse_google_results(soup)
+            html_text = resp.text
+            soup = BeautifulSoup(html_text, "lxml")
+            _save_debug_html("google_shopping.html", html_text, resp.url)
+
+            # Log what we found for debugging
+            page_title = soup.title.string if soup.title else "NO TITLE"
+            logger.info(f"Google page title: {page_title}")
+            logger.debug(f"HTML first 500 chars: {html_text[:500]}")
+
+            # Extract products with multiple strategies
+            products = self._parse_google_results(soup, html_text)
+            logger.info(f"Google Shopping extracted {len(products)} products")
 
         except requests.RequestException as e:
             logger.error(f"Google Shopping error: {e}")
 
         return products
 
-    def _parse_google_results(self, soup: BeautifulSoup) -> list[Product]:
-        """Parse Google Shopping results with multiple strategies."""
+    def _parse_google_results(self, soup: BeautifulSoup, raw_html: str) -> list[Product]:
+        """Parse Google Shopping results with multiple strategies for both
+        old (tbm=shop) and new (udm=28) formats."""
         products = []
 
-        # Strategy 1: Structured product cards
-        cards = soup.select("div.sh-dgr__grid-result, div.sh-dgr__content")
+        # === STRATEGY 1: Classic Shopping grid cards ===
+        cards = soup.select("div.sh-dgr__grid-result, div.sh-dgr__content, div.sh-pr__product-results-grid div.sh-dlr__list-result")
+        logger.debug(f"Strategy 1 (classic cards): found {len(cards)} cards")
         for card in cards:
-            try:
-                title = ""
-                for sel in ["h3", "h4", "[role='heading']"]:
-                    el = card.select_one(sel)
-                    if el:
-                        title = el.get_text(strip=True)
-                        if title:
-                            break
-                if not title:
-                    continue
+            p = self._parse_google_card(card)
+            if p:
+                products.append(p)
 
-                price = None
-                for span in card.find_all("span"):
-                    txt = span.get_text(strip=True)
-                    if "€" in txt:
-                        price = self._extract_price(txt)
-                        if price:
-                            break
+        if products:
+            logger.info(f"Strategy 1 found {len(products)} products")
+            return products
 
-                if not price:
-                    continue
-
-                merchant = ""
-                for sel in [".aULzUe", ".IuHnof"]:
-                    el = card.select_one(sel)
-                    if el:
-                        merchant = el.get_text(strip=True)
-                        if merchant:
-                            break
-
-                link = ""
-                a = card.select_one("a[href]")
-                if a:
-                    href = a.get("href", "")
-                    link = href if href.startswith("http") else f"https://www.google.com{href}"
-
-                products.append(Product(
-                    rank=0, title=title, price=price, currency="€",
-                    merchant=merchant or "Unbekannter Händler", link=link,
-                ))
-            except Exception:
+        # === STRATEGY 2: Generic product containers with h3 + price ===
+        # Google udm=28 uses various div structures
+        # Find all h3 tags that could be product titles
+        h3_tags = soup.find_all("h3")
+        logger.debug(f"Strategy 2 (h3 scan): found {len(h3_tags)} h3 tags")
+        for h3 in h3_tags:
+            title = h3.get_text(strip=True)
+            if not title or len(title) < 3:
                 continue
 
-        # Strategy 2: Regex fallback
-        if not products:
-            text = str(soup)
-            price_pat = re.compile(r'([\d.,]+)\s*€')
-            for match in price_pat.finditer(text):
-                price = self._extract_price(match.group(1))
-                if not price:
-                    continue
-                start = max(0, match.start() - 500)
-                end = min(len(text), match.end() + 200)
-                ctx = text[start:end]
-                title_m = re.search(r'<h[34][^>]*>([^<]+)</h[34]>', ctx)
-                if title_m:
+            # Walk up to find the product container
+            container = h3.parent
+            for _ in range(6):
+                if container is None or container.name == "body":
+                    break
+                # Look for price in this container
+                container_text = container.get_text(" ", strip=True)
+                price_match = re.search(r'([\d]{1,3}(?:[.,]\d{3})*[.,]\d{2})\s*€|€\s*([\d]{1,3}(?:[.,]\d{3})*[.,]\d{2})', container_text)
+                if price_match:
+                    price_str = price_match.group(1) or price_match.group(2)
+                    price = self._extract_price(price_str)
+                    if price:
+                        # Found title + price pair
+                        merchant = self._extract_merchant_from_container(container, title)
+                        link = ""
+                        a = container.find("a", href=True)
+                        if a:
+                            href = a.get("href", "")
+                            link = href if href.startswith("http") else f"https://www.google.com{href}"
+
+                        products.append(Product(
+                            rank=0, title=title, price=price, currency="€",
+                            merchant=merchant, link=link,
+                        ))
+                        break
+                container = container.parent
+
+        if products:
+            logger.info(f"Strategy 2 found {len(products)} products")
+            return products
+
+        # === STRATEGY 3: Find all links with product-like structure ===
+        all_links = soup.find_all("a", href=True)
+        logger.debug(f"Strategy 3 (link scan): {len(all_links)} total links")
+        for a in all_links:
+            href = a.get("href", "")
+            # Skip non-product links
+            if not any(x in href for x in ["/shopping/product/", "/url?", "merchant", "shop"]):
+                continue
+
+            # Get text content of the link and its parent
+            parent = a.parent
+            for _ in range(4):
+                if parent and parent.parent and parent.parent.name != "body":
+                    parent = parent.parent
+                else:
+                    break
+
+            if parent:
+                text = parent.get_text(" ", strip=True)
+                price_match = re.search(r'([\d]{1,3}(?:[.,]\d{3})*[.,]\d{2})\s*€', text)
+                if price_match:
+                    price = self._extract_price(price_match.group(1))
+                    if price:
+                        # Try to get title from the link or heading
+                        title = a.get_text(strip=True)
+                        h = parent.find(["h3", "h4"])
+                        if h:
+                            title = h.get_text(strip=True)
+                        if title and len(title) > 3:
+                            link = href if href.startswith("http") else f"https://www.google.com{href}"
+                            products.append(Product(
+                                rank=0, title=title, price=price, currency="€",
+                                merchant="Google Shopping", link=link,
+                            ))
+
+        if products:
+            logger.info(f"Strategy 3 found {len(products)} products")
+            return products
+
+        # === STRATEGY 4: Raw HTML regex - last resort ===
+        logger.debug("Strategy 4 (regex fallback)")
+        price_pattern = re.compile(r'([\d]{1,3}(?:\.\d{3})*,\d{2})\s*€')
+        title_pattern = re.compile(r'<h3[^>]*>([^<]{5,120})</h3>')
+
+        titles_found = title_pattern.findall(raw_html)
+        prices_found = price_pattern.findall(raw_html)
+        logger.debug(f"Regex found {len(titles_found)} titles, {len(prices_found)} prices")
+
+        # Try to pair titles with nearby prices
+        for title_match in title_pattern.finditer(raw_html):
+            title = title_match.group(1).strip()
+            # Look for price within 500 chars after the title
+            after_title = raw_html[title_match.end():title_match.end() + 500]
+            price_m = price_pattern.search(after_title)
+            if price_m:
+                price = self._extract_price(price_m.group(1))
+                if price:
                     products.append(Product(
-                        rank=0, title=title_m.group(1).strip(), price=price,
-                        currency="€", merchant="Unbekannt", link="",
+                        rank=0, title=title, price=price, currency="€",
+                        merchant="Google Shopping", link="",
                     ))
 
+        logger.info(f"Strategy 4 found {len(products)} products")
         return products
+
+    def _parse_google_card(self, card: Tag) -> Optional[Product]:
+        """Parse a single Google Shopping product card."""
+        title = ""
+        for sel in ["h3", "h4", "[role='heading']", "[aria-level]"]:
+            el = card.select_one(sel)
+            if el:
+                title = el.get_text(strip=True)
+                if title:
+                    break
+        if not title:
+            return None
+
+        price = None
+        for span in card.find_all("span"):
+            txt = span.get_text(strip=True)
+            if "€" in txt:
+                price = self._extract_price(txt)
+                if price:
+                    break
+        if not price:
+            return None
+
+        merchant = self._extract_merchant_from_container(card, title)
+
+        link = ""
+        a = card.select_one("a[href]")
+        if a:
+            href = a.get("href", "")
+            link = href if href.startswith("http") else f"https://www.google.com{href}"
+
+        return Product(
+            rank=0, title=title, price=price, currency="€",
+            merchant=merchant, link=link,
+        )
+
+    def _extract_merchant_from_container(self, container: Tag, title: str) -> str:
+        """Try to extract merchant name from a product container."""
+        # Try known merchant selectors
+        for sel in [".aULzUe", ".IuHnof", "[data-merchant]", ".sh-np__seller-container"]:
+            el = container.select_one(sel)
+            if el:
+                name = el.get_text(strip=True)
+                if name:
+                    return name
+
+        # Look for small text elements that might be merchant names
+        for el in container.find_all(["span", "div"]):
+            txt = el.get_text(strip=True)
+            if (txt and 3 < len(txt) < 40
+                    and "€" not in txt
+                    and txt != title
+                    and not txt.startswith("http")
+                    and not any(c.isdigit() for c in txt[:2])):
+                # Check if this looks like a merchant (no common non-merchant patterns)
+                if not any(w in txt.lower() for w in ["suche", "filter", "ergebnis", "seite", "mehr", "anzeige"]):
+                    return txt
+
+        return "Unbekannter Händler"
 
     # =========================================================
     #  MAIN SEARCH
