@@ -1,6 +1,7 @@
 """
-PyQt6 GUI for the price comparison tool.
-Modern dark-themed interface with search, filters, and results table.
+PyQt6 GUI for PreisHai — European price comparison tool.
+Modern dark-themed interface with search, provider selection, filters,
+results table, and product detail view.
 """
 
 import webbrowser
@@ -12,16 +13,20 @@ from PyQt6.QtWidgets import (
     QLineEdit, QPushButton, QTableWidget, QTableWidgetItem,
     QLabel, QComboBox, QDoubleSpinBox, QProgressBar,
     QGroupBox, QHeaderView, QMessageBox, QStatusBar,
-    QApplication, QSplitter, QFrame,
+    QApplication, QCheckBox,
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize
-from PyQt6.QtGui import QFont, QColor, QIcon, QPalette, QAction
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtGui import QFont, QColor
 
-from app.scraper import PriceScraper, EU_COUNTRIES, SORT_OPTIONS, CONDITION_OPTIONS
+from app.price_engine import PriceEngine
+from app.providers import EU_COUNTRIES
 from app.models import Product
+from app.detail_view import ProductDetailDialog
 
 logger = logging.getLogger(__name__)
 
+
+# ── Dark theme stylesheet ──────────────────────────────────────────
 
 DARK_STYLE = """
 QMainWindow {
@@ -171,20 +176,45 @@ QLabel#subtitleLabel {
     font-size: 12px;
     color: #888;
 }
+QCheckBox {
+    font-size: 12px;
+    spacing: 4px;
+}
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #3a3a5c;
+    border-radius: 3px;
+    background-color: #16213e;
+}
+QCheckBox::indicator:checked {
+    background-color: #7c83ff;
+    border-color: #7c83ff;
+}
 """
 
 
+# ── Search worker (background thread) ─────────────────────────────
+
 class SearchWorker(QThread):
-    """Background thread for running searches."""
+    """Runs PriceEngine.search() on a background thread."""
+
     finished = pyqtSignal(list)
     error = pyqtSignal(str)
     progress = pyqtSignal(str, int)
 
-    def __init__(self, scraper: PriceScraper, query: str, country: str,
-                 sort: str, condition: str, price_min: Optional[float],
-                 price_max: Optional[float]):
+    def __init__(
+        self,
+        engine: PriceEngine,
+        query: str,
+        country: str,
+        sort: str,
+        condition: str,
+        price_min: Optional[float],
+        price_max: Optional[float],
+    ):
         super().__init__()
-        self.scraper = scraper
+        self.engine = engine
         self.query = query
         self.country = country
         self.sort = sort
@@ -195,7 +225,7 @@ class SearchWorker(QThread):
 
     def run(self):
         try:
-            results = self.scraper.search(
+            results = self.engine.search(
                 query=self.query,
                 country=self.country,
                 sort=self.sort,
@@ -219,20 +249,23 @@ class SearchWorker(QThread):
         self._cancelled = True
 
 
+# ── Main window ────────────────────────────────────────────────────
+
 class MainWindow(QMainWindow):
     """Main application window."""
 
     def __init__(self):
         super().__init__()
-        self.scraper = PriceScraper()
+        self.engine = PriceEngine()
         self.worker: Optional[SearchWorker] = None
         self.current_results: list[Product] = []
+        self._provider_checkboxes: dict[str, QCheckBox] = {}
         self._init_ui()
 
     def _init_ui(self):
         self.setWindowTitle("PreisHai - Preisvergleich für Europa")
-        self.setMinimumSize(1000, 700)
-        self.resize(1200, 800)
+        self.setMinimumSize(1080, 720)
+        self.resize(1280, 850)
         self.setStyleSheet(DARK_STYLE)
 
         central = QWidget()
@@ -241,11 +274,13 @@ class MainWindow(QMainWindow):
         layout.setSpacing(12)
         layout.setContentsMargins(16, 12, 16, 8)
 
-        # Header
+        # ── Header ───────────────────────────────────────────
         header = QHBoxLayout()
         title = QLabel("PreisHai")
         title.setObjectName("titleLabel")
-        subtitle = QLabel("Europäischer Preisvergleich — Finde die besten Deals")
+        subtitle = QLabel(
+            "Europäischer Preisvergleich — Finde die besten Deals"
+        )
         subtitle.setObjectName("subtitleLabel")
         title_layout = QVBoxLayout()
         title_layout.addWidget(title)
@@ -255,10 +290,13 @@ class MainWindow(QMainWindow):
         header.addStretch()
         layout.addLayout(header)
 
-        # Search bar
+        # ── Search bar ───────────────────────────────────────
         search_layout = QHBoxLayout()
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Produkt eingeben (z.B. 'RTX 4090', 'iPhone 15 Pro', 'Samsung S24')...")
+        self.search_input.setPlaceholderText(
+            "Produkt eingeben (z.B. 'RTX 4090', 'iPhone 15 Pro', "
+            "'Samsung S24')..."
+        )
         self.search_input.setMinimumHeight(42)
         font = self.search_input.font()
         font.setPointSize(13)
@@ -281,7 +319,26 @@ class MainWindow(QMainWindow):
         search_layout.addWidget(self.cancel_btn)
         layout.addLayout(search_layout)
 
-        # Filters
+        # ── Provider selection ───────────────────────────────
+        provider_group = QGroupBox("Datenquellen")
+        provider_layout = QHBoxLayout(provider_group)
+        provider_layout.setSpacing(16)
+
+        for provider in self.engine.providers:
+            cb = QCheckBox(provider.name)
+            cb.setChecked(provider.enabled)
+            cb.toggled.connect(
+                lambda checked, p=provider: setattr(p, "enabled", checked)
+            )
+            if not provider.enabled:
+                cb.setToolTip("Platzhalter — noch nicht implementiert")
+            provider_layout.addWidget(cb)
+            self._provider_checkboxes[provider.name] = cb
+
+        provider_layout.addStretch()
+        layout.addWidget(provider_group)
+
+        # ── Filters ──────────────────────────────────────────
         filter_group = QGroupBox("Filter")
         filter_layout = QHBoxLayout(filter_group)
         filter_layout.setSpacing(16)
@@ -304,13 +361,17 @@ class MainWindow(QMainWindow):
         }
         for key, label in sort_labels.items():
             self.sort_combo.addItem(label, key)
-        self.sort_combo.setCurrentIndex(1)  # Default: price ascending
+        self.sort_combo.setCurrentIndex(1)
         filter_layout.addWidget(self.sort_combo)
 
         # Condition
         filter_layout.addWidget(QLabel("Zustand:"))
         self.condition_combo = QComboBox()
-        condition_labels = {"alle": "Alle", "neu": "Neu", "gebraucht": "Gebraucht"}
+        condition_labels = {
+            "alle": "Alle",
+            "neu": "Neu",
+            "gebraucht": "Gebraucht",
+        }
         for key, label in condition_labels.items():
             self.condition_combo.addItem(label, key)
         filter_layout.addWidget(self.condition_combo)
@@ -337,7 +398,7 @@ class MainWindow(QMainWindow):
         filter_layout.addStretch()
         layout.addWidget(filter_group)
 
-        # Progress bar
+        # ── Progress ─────────────────────────────────────────
         self.progress_bar = QProgressBar()
         self.progress_bar.setVisible(False)
         self.progress_label = QLabel("")
@@ -348,30 +409,35 @@ class MainWindow(QMainWindow):
         progress_layout.addWidget(self.progress_bar, stretch=1)
         layout.addLayout(progress_layout)
 
-        # Results table
+        # ── Results table ────────────────────────────────────
         self.table = QTableWidget()
-        self.table.setColumnCount(7)
+        self.table.setColumnCount(8)
         self.table.setHorizontalHeaderLabels([
-            "#", "Produkt", "Preis", "Händler", "Bewertung", "Versand", "Link"
+            "#", "Produkt", "Preis", "Versand", "Händler",
+            "Quelle", "Verfügbarkeit", "Link",
         ])
 
-        header_view = self.table.horizontalHeader()
-        header_view.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
-        header_view.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        header_view.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
-        header_view.setSectionResizeMode(3, QHeaderView.ResizeMode.Interactive)
-        header_view.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
-        header_view.setSectionResizeMode(5, QHeaderView.ResizeMode.Interactive)
-        header_view.setSectionResizeMode(6, QHeaderView.ResizeMode.Fixed)
+        hdr = self.table.horizontalHeader()
+        hdr.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
+        hdr.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        hdr.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
+        hdr.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
+        hdr.setSectionResizeMode(4, QHeaderView.ResizeMode.Interactive)
+        hdr.setSectionResizeMode(5, QHeaderView.ResizeMode.Fixed)
+        hdr.setSectionResizeMode(6, QHeaderView.ResizeMode.Interactive)
+        hdr.setSectionResizeMode(7, QHeaderView.ResizeMode.Fixed)
 
-        self.table.setColumnWidth(0, 40)
+        self.table.setColumnWidth(0, 36)
         self.table.setColumnWidth(2, 100)
-        self.table.setColumnWidth(3, 180)
-        self.table.setColumnWidth(4, 80)
-        self.table.setColumnWidth(5, 150)
-        self.table.setColumnWidth(6, 80)
+        self.table.setColumnWidth(3, 90)
+        self.table.setColumnWidth(4, 170)
+        self.table.setColumnWidth(5, 110)
+        self.table.setColumnWidth(6, 120)
+        self.table.setColumnWidth(7, 70)
 
-        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.table.setSelectionBehavior(
+            QTableWidget.SelectionBehavior.SelectRows,
+        )
         self.table.setAlternatingRowColors(True)
         self.table.verticalHeader().setVisible(False)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -379,28 +445,32 @@ class MainWindow(QMainWindow):
 
         layout.addWidget(self.table, stretch=1)
 
-        # Status bar
+        # ── Status bar ───────────────────────────────────────
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
-        self.status_bar.showMessage("Bereit — Gib einen Suchbegriff ein und klicke auf 'Suchen'")
+        self.status_bar.showMessage(
+            "Bereit — Gib einen Suchbegriff ein und klicke auf 'Suchen'"
+        )
+
+    # ── Actions ────────────────────────────────────────────────
 
     def _on_search(self):
         query = self.search_input.text().strip()
         if not query:
-            QMessageBox.warning(self, "Hinweis", "Bitte gib einen Suchbegriff ein.")
+            QMessageBox.warning(
+                self, "Hinweis", "Bitte gib einen Suchbegriff ein.",
+            )
             return
 
         if self.worker and self.worker.isRunning():
             return
 
-        # Get filter values
         country = self.country_combo.currentData()
         sort_key = self.sort_combo.currentData()
         condition = self.condition_combo.currentData()
         p_min = self.price_min.value() if self.price_min.value() > 0 else None
         p_max = self.price_max.value() if self.price_max.value() > 0 else None
 
-        # UI state
         self.search_btn.setEnabled(False)
         self.cancel_btn.setVisible(True)
         self.progress_bar.setVisible(True)
@@ -410,9 +480,8 @@ class MainWindow(QMainWindow):
         self.table.setRowCount(0)
         self.status_bar.showMessage(f"Suche nach '{query}'...")
 
-        # Start worker thread
         self.worker = SearchWorker(
-            self.scraper, query, country, sort_key, condition, p_min, p_max
+            self.engine, query, country, sort_key, condition, p_min, p_max,
         )
         self.worker.finished.connect(self._on_results)
         self.worker.error.connect(self._on_error)
@@ -434,21 +503,25 @@ class MainWindow(QMainWindow):
         self.current_results = results
 
         if not results:
-            self.status_bar.showMessage(
-                "Keine Ergebnisse gefunden. Versuche einen anderen Suchbegriff."
-            )
             import os
-            debug_dir = os.path.join(os.path.expanduser("~"), "PreisHai_debug")
+            debug_dir = os.path.join(
+                os.path.expanduser("~"), "PreisHai_debug",
+            )
+            self.status_bar.showMessage(
+                "Keine Ergebnisse gefunden. Versuche einen anderen "
+                "Suchbegriff."
+            )
             QMessageBox.information(
-                self, "Keine Ergebnisse",
+                self,
+                "Keine Ergebnisse",
                 "Es wurden keine Produkte gefunden.\n\n"
                 "Tipps:\n"
-                "• Versuche einen anderen oder kürzeren Suchbegriff\n"
-                "• Entferne Preisfilter\n"
-                "• Wähle ein anderes Land\n\n"
+                "  Versuche einen anderen oder kürzeren Suchbegriff\n"
+                "  Entferne Preisfilter\n"
+                "  Wähle ein anderes Land\n\n"
                 f"Debug-HTML wurde gespeichert in:\n{debug_dir}\n\n"
                 "Falls das Problem bestehen bleibt, schicke die\n"
-                "HTML-Dateien aus dem Debug-Ordner zur Analyse."
+                "HTML-Dateien aus dem Debug-Ordner zur Analyse.",
             )
             return
 
@@ -456,16 +529,18 @@ class MainWindow(QMainWindow):
 
         cheapest = results[0]
         self.status_bar.showMessage(
-            f"{len(results)} Ergebnisse — Günstigster Preis: {cheapest.price_display} bei {cheapest.merchant}"
+            f"{len(results)} Ergebnisse — Günstigster Preis: "
+            f"{cheapest.price_display} bei {cheapest.merchant}"
         )
 
     def _on_error(self, error_msg: str):
         self._reset_search_ui()
         self.status_bar.showMessage(f"Fehler: {error_msg}")
         QMessageBox.critical(
-            self, "Fehler bei der Suche",
+            self,
+            "Fehler bei der Suche",
             f"Es ist ein Fehler aufgetreten:\n\n{error_msg}\n\n"
-            "Bitte prüfe deine Internetverbindung und versuche es erneut."
+            "Bitte prüfe deine Internetverbindung und versuche es erneut.",
         )
 
     def _reset_search_ui(self):
@@ -474,24 +549,27 @@ class MainWindow(QMainWindow):
         self.progress_bar.setVisible(False)
         self.progress_label.setVisible(False)
 
+    # ── Table population ───────────────────────────────────────
+
     def _populate_table(self, products: list[Product]):
         self.table.setRowCount(len(products))
 
         for row, product in enumerate(products):
-            # Rank
+            # #
             rank_item = QTableWidgetItem(str(product.rank))
             rank_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table.setItem(row, 0, rank_item)
 
-            # Title
+            # Produkt
             title_item = QTableWidgetItem(product.title)
             title_item.setToolTip(product.title)
             self.table.setItem(row, 1, title_item)
 
-            # Price
+            # Preis (color-coded)
             price_item = QTableWidgetItem(product.price_display)
-            price_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            # Color code: green for cheapest, gradient to yellow
+            price_item.setTextAlignment(
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+            )
             if row == 0:
                 price_item.setForeground(QColor("#4caf50"))
             elif row < 5:
@@ -505,40 +583,53 @@ class MainWindow(QMainWindow):
             price_item.setFont(font)
             self.table.setItem(row, 2, price_item)
 
-            # Merchant
+            # Versand
+            ship_item = QTableWidgetItem(product.shipping_display)
+            ship_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.table.setItem(row, 3, ship_item)
+
+            # Händler
             merchant_item = QTableWidgetItem(product.merchant)
             merchant_item.setToolTip(product.merchant)
-            self.table.setItem(row, 3, merchant_item)
+            self.table.setItem(row, 4, merchant_item)
 
-            # Rating
-            if product.rating > 0:
-                stars = "★" * int(product.rating) + "☆" * (5 - int(product.rating))
-                rating_text = f"{product.rating:.1f}"
-                rating_item = QTableWidgetItem(rating_text)
-                rating_item.setToolTip(f"{stars} ({product.reviews} Bewertungen)")
-            else:
-                rating_item = QTableWidgetItem("—")
-            rating_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.table.setItem(row, 4, rating_item)
+            # Quelle
+            source_item = QTableWidgetItem(product.source or "—")
+            source_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            source_item.setForeground(QColor("#888"))
+            self.table.setItem(row, 5, source_item)
 
-            # Delivery
-            delivery_item = QTableWidgetItem(product.delivery_info or "—")
-            self.table.setItem(row, 5, delivery_item)
+            # Verfügbarkeit
+            avail_item = QTableWidgetItem(product.availability or "—")
+            self.table.setItem(row, 6, avail_item)
 
-            # Link button
+            # Link
             if product.link:
-                link_item = QTableWidgetItem("Öffnen")
+                link_item = QTableWidgetItem("Details")
                 link_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                 link_item.setForeground(QColor("#7c83ff"))
-                link_item.setToolTip("Doppelklick zum Öffnen im Browser")
+                link_item.setToolTip(
+                    "Doppelklick: Produktdetails — "
+                    "Link-Spalte: Im Browser öffnen"
+                )
             else:
                 link_item = QTableWidgetItem("—")
-            self.table.setItem(row, 6, link_item)
+            self.table.setItem(row, 7, link_item)
 
         self.table.resizeRowsToContents()
 
+    # ── Cell interaction ───────────────────────────────────────
+
     def _on_cell_double_click(self, row: int, col: int):
-        if row < len(self.current_results):
-            product = self.current_results[row]
-            if product.link:
-                webbrowser.open(product.link)
+        if row >= len(self.current_results):
+            return
+        product = self.current_results[row]
+
+        # Double-click on "Link" column → open browser directly
+        if col == 7 and product.link:
+            webbrowser.open(product.link)
+            return
+
+        # Everything else → show detail dialog
+        dlg = ProductDetailDialog(product, self)
+        dlg.exec()
