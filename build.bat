@@ -1,72 +1,131 @@
 @echo off
+setlocal enabledelayedexpansion
 echo ============================================
 echo   PreisHai - Build Script
+echo   Kein Python noetig - alles automatisch!
 echo ============================================
 echo.
 
-REM Finde Python - probiere verschiedene Varianten
+set "PROJECT_DIR=%~dp0"
+set "PYTHON_DIR=%PROJECT_DIR%python"
+set "PYTHON_EXE=%PYTHON_DIR%\python.exe"
+set "PYTHON_VER=3.12.8"
+set "PYTHON_ZIP=python-%PYTHON_VER%-embed-amd64.zip"
+set "PYTHON_URL=https://www.python.org/ftp/python/%PYTHON_VER%/%PYTHON_ZIP%"
+set "GETPIP_URL=https://bootstrap.pypa.io/get-pip.py"
+
+REM =============================================
+REM  Schritt 0: Pruefen ob portable Python da ist
+REM =============================================
+if exist "%PYTHON_EXE%" (
+    echo Portable Python gefunden: %PYTHON_EXE%
+    goto :have_python
+)
+
+REM Pruefen ob systemweites Python vorhanden
 set PYTHON_CMD=
 where python >nul 2>&1 && set PYTHON_CMD=python
 if not defined PYTHON_CMD (
     where py >nul 2>&1 && set PYTHON_CMD=py
 )
-if not defined PYTHON_CMD (
-    where python3 >nul 2>&1 && set PYTHON_CMD=python3
+if defined PYTHON_CMD (
+    echo System-Python gefunden: %PYTHON_CMD%
+    set "PYTHON_EXE=%PYTHON_CMD%"
+    goto :have_python
 )
 
-if not defined PYTHON_CMD (
-    echo ============================================
-    echo   FEHLER: Python nicht gefunden!
-    echo ============================================
-    echo.
-    echo Python ist nicht installiert oder nicht im PATH.
-    echo.
-    echo So behebst du das:
-    echo   1. Lade Python 3.10+ herunter:
-    echo      https://www.python.org/downloads/
-    echo.
-    echo   2. WICHTIG: Bei der Installation den Haken setzen bei:
-    echo      [x] "Add Python to PATH"
-    echo.
-    echo   3. Nach der Installation ein NEUES Terminal oeffnen
-    echo      und build.bat erneut starten.
-    echo.
-    echo   Alternativ: Wenn Python schon installiert ist,
-    echo   oeffne die Systemsteuerung ^> "Umgebungsvariablen"
-    echo   und fuege den Python-Pfad zum PATH hinzu.
-    echo   Typischer Pfad: C:\Users\DEINNAME\AppData\Local\Programs\Python\Python3xx\
-    echo ============================================
+echo Kein Python gefunden - lade portable Version herunter...
+echo.
+
+REM =============================================
+REM  Schritt 0a: Python herunterladen
+REM =============================================
+echo [0/4] Lade Python %PYTHON_VER% herunter...
+echo       URL: %PYTHON_URL%
+echo.
+
+REM Nutze PowerShell zum Download (auf jedem Windows vorhanden)
+powershell -Command "& { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%PYTHON_URL%' -OutFile '%PROJECT_DIR%%PYTHON_ZIP%' }"
+if errorlevel 1 (
+    echo FEHLER: Download fehlgeschlagen!
+    echo Bitte pruefe deine Internetverbindung.
     pause
     exit /b 1
 )
 
-echo Python gefunden: %PYTHON_CMD%
-%PYTHON_CMD% --version
+echo       Download OK!
 echo.
 
-REM Finde pip
-set PIP_CMD=
-where pip >nul 2>&1 && set PIP_CMD=pip
-if not defined PIP_CMD (
-    set PIP_CMD=%PYTHON_CMD% -m pip
+REM =============================================
+REM  Schritt 0b: Python entpacken
+REM =============================================
+echo       Entpacke Python...
+if not exist "%PYTHON_DIR%" mkdir "%PYTHON_DIR%"
+powershell -Command "& { Expand-Archive -Path '%PROJECT_DIR%%PYTHON_ZIP%' -DestinationPath '%PYTHON_DIR%' -Force }"
+if errorlevel 1 (
+    echo FEHLER: Entpacken fehlgeschlagen!
+    pause
+    exit /b 1
 )
 
+REM Loesche ZIP
+del "%PROJECT_DIR%%PYTHON_ZIP%" >nul 2>&1
+echo       Entpackt nach: %PYTHON_DIR%
+echo.
+
+REM =============================================
+REM  Schritt 0c: pip installieren
+REM =============================================
+echo       Installiere pip...
+
+REM WICHTIG: Python Embed hat ein ._pth File das imports blockiert
+REM Wir muessen "import site" aktivieren
+for %%F in ("%PYTHON_DIR%\python*._pth") do (
+    powershell -Command "& { (Get-Content '%%F') -replace '#import site','import site' | Set-Content '%%F' }"
+)
+
+REM get-pip.py herunterladen
+powershell -Command "& { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%GETPIP_URL%' -OutFile '%PYTHON_DIR%\get-pip.py' }"
+if errorlevel 1 (
+    echo FEHLER: get-pip.py Download fehlgeschlagen!
+    pause
+    exit /b 1
+)
+
+"%PYTHON_EXE%" "%PYTHON_DIR%\get-pip.py" --no-warn-script-location
+if errorlevel 1 (
+    echo FEHLER: pip Installation fehlgeschlagen!
+    pause
+    exit /b 1
+)
+del "%PYTHON_DIR%\get-pip.py" >nul 2>&1
+echo       pip OK!
+echo.
+
+:have_python
+echo.
+echo Verwende: %PYTHON_EXE%
+"%PYTHON_EXE%" --version
+echo.
+
+REM =============================================
+REM  Schritt 1: Abhaengigkeiten installieren
+REM =============================================
 echo [1/3] Installiere Abhaengigkeiten...
-%PIP_CMD% install -r requirements.txt
+"%PYTHON_EXE%" -m pip install -r "%PROJECT_DIR%requirements.txt" --no-warn-script-location
 if errorlevel 1 (
     echo.
     echo FEHLER beim Installieren der Abhaengigkeiten!
-    echo Versuche: %PYTHON_CMD% -m pip install -r requirements.txt
     pause
     exit /b 1
 )
 
 echo.
-echo [2/3] Erstelle EXE-Datei...
-%PYTHON_CMD% -m PyInstaller --noconfirm --onefile --windowed ^
+echo [2/3] Erstelle EXE-Datei (das dauert 1-2 Minuten)...
+"%PYTHON_EXE%" -m PyInstaller --noconfirm --onefile --windowed ^
     --name "PreisHai" ^
     --add-data "app;app" ^
-    main.py
+    "%PROJECT_DIR%main.py"
 if errorlevel 1 (
     echo FEHLER beim Erstellen der EXE!
     pause
@@ -77,7 +136,10 @@ echo.
 echo [3/3] Fertig!
 echo.
 echo ============================================
-echo   Die EXE-Datei befindet sich in: dist\PreisHai.exe
+echo   Die EXE-Datei befindet sich in:
+echo   %PROJECT_DIR%dist\PreisHai.exe
+echo.
+echo   Einfach PreisHai.exe doppelklicken!
 echo ============================================
 echo.
 pause
