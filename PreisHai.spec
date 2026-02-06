@@ -23,6 +23,7 @@ a = Analysis(
         'app.providers.idealo',
         'app.providers.notebooksbilliger',
         'app.providers.mindfactory',
+        'app.product_filter',
         'app.price_engine',
         'app.detail_view',
     ],

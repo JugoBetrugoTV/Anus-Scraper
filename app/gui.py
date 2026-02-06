@@ -21,6 +21,7 @@ from app.price_engine import PriceEngine
 from app.providers import EU_COUNTRIES
 from app.models import Product, AvailabilityStatus
 from app.detail_view import ProductDetailDialog
+from app.product_filter import detect_gpu_variants, parse_gpu_query
 
 logger = logging.getLogger(__name__)
 
@@ -574,6 +575,10 @@ class MainWindow(QMainWindow):
     def _populate_table(self, products: list[Product]):
         self.table.setRowCount(len(products))
 
+        # Check if this is a GPU search — show variant tags if so
+        query = self.search_input.text().strip()
+        is_gpu_search = parse_gpu_query(query) is not None
+
         # Find the cheapest price for highlighting
         cheapest_price = min(p.price for p in products) if products else 0
 
@@ -587,8 +592,14 @@ class MainWindow(QMainWindow):
                 rank_item.setBackground(QColor("#1a3a1a"))
             self.table.setItem(row, 0, rank_item)
 
-            # Produkt
-            title_item = QTableWidgetItem(product.title)
+            # Produkt (with variant tags for GPU searches)
+            display_title = product.title
+            if is_gpu_search:
+                variants = detect_gpu_variants(product.title)
+                if variants:
+                    tags = " | ".join(variants)
+                    display_title = f"{product.title}  [{tags}]"
+            title_item = QTableWidgetItem(display_title)
             title_item.setToolTip(product.title)
             if is_best:
                 title_item.setBackground(QColor("#1a3a1a"))

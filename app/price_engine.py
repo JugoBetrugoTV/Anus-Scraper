@@ -9,6 +9,7 @@ from typing import Optional
 
 from app.models import Product
 from app.providers import ShopProvider
+from app.product_filter import filter_products
 from app.providers.geizhals import GeizhalsProvider
 from app.providers.google_shopping import GoogleShoppingProvider
 from app.providers.amazon import AmazonProvider
@@ -110,6 +111,12 @@ class PriceEngine:
                 break
 
         # --- Post-processing ---
+        if progress_callback:
+            progress_callback("Ergebnisse werden gefiltert...", 88)
+
+        # Strict product validation (GPU model matching, etc.)
+        all_products = filter_products(all_products, query)
+
         if progress_callback:
             progress_callback("Ergebnisse werden sortiert...", 90)
 
