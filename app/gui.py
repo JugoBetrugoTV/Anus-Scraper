@@ -437,6 +437,8 @@ class MainWindow(QMainWindow):
             self.status_bar.showMessage(
                 "Keine Ergebnisse gefunden. Versuche einen anderen Suchbegriff."
             )
+            import os
+            debug_dir = os.path.join(os.path.expanduser("~"), "PreisHai_debug")
             QMessageBox.information(
                 self, "Keine Ergebnisse",
                 "Es wurden keine Produkte gefunden.\n\n"
@@ -444,8 +446,9 @@ class MainWindow(QMainWindow):
                 "• Versuche einen anderen oder kürzeren Suchbegriff\n"
                 "• Entferne Preisfilter\n"
                 "• Wähle ein anderes Land\n\n"
-                "Hinweis: Google kann manchmal Anfragen blockieren.\n"
-                "Warte kurz und versuche es erneut."
+                f"Debug-HTML wurde gespeichert in:\n{debug_dir}\n\n"
+                "Falls das Problem bestehen bleibt, schicke die\n"
+                "HTML-Dateien aus dem Debug-Ordner zur Analyse."
             )
             return
 

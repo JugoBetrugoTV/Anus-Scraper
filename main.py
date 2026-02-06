@@ -1,10 +1,12 @@
 """
 PreisHai - European Price Comparison Tool
-Searches Google Shopping across EU markets and displays the 20 cheapest offers.
+Scrapes Geizhals.de and Google Shopping for the cheapest European offers.
 """
 
 import sys
+import os
 import logging
+from pathlib import Path
 
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt
@@ -13,10 +15,17 @@ from app.gui import MainWindow
 
 
 def setup_logging():
+    log_dir = Path(os.path.expanduser("~")) / "PreisHai_debug"
+    log_dir.mkdir(exist_ok=True)
+    log_file = log_dir / "preishai.log"
+
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.DEBUG,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        handlers=[logging.StreamHandler()],
+        handlers=[
+            logging.StreamHandler(),
+            logging.FileHandler(str(log_file), encoding="utf-8"),
+        ],
     )
 
 
