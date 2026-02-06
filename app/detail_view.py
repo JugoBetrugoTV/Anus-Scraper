@@ -31,8 +31,8 @@ class PriceHistoryWidget(QFrame):
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed,
         )
         self.setStyleSheet(
-            "background-color: #0d1b2a; border: 1px solid #3a3a5c; "
-            "border-radius: 6px;"
+            "background-color: #060616; border: 1px solid #1c1c3a; "
+            "border-radius: 8px;"
         )
         # Generate plausible mock data around current price
         self._points = self._generate_history(current_price, days=30)
@@ -96,7 +96,7 @@ class PriceHistoryWidget(QFrame):
         for i in range(1, len(self._points)):
             path.lineTo(to_x(i), to_y(self._points[i]))
 
-        painter.setPen(QPen(QColor("#7c83ff"), 2))
+        painter.setPen(QPen(QColor("#8b5cf6"), 2))
         painter.drawPath(path)
 
         # Current price dot
@@ -127,70 +127,94 @@ class PriceHistoryWidget(QFrame):
 
 _DIALOG_STYLE = """
     QDialog {
-        background-color: #1a1a2e;
-        color: #e0e0e0;
+        background-color: #0a0a1e;
+        color: #e2e8f0;
     }
-    QLabel { font-size: 13px; }
+    QLabel {
+        font-size: 13px;
+        background: transparent;
+    }
     QLabel#detailTitle {
-        font-size: 17px;
-        font-weight: bold;
-        color: #7c83ff;
+        font-size: 18px;
+        font-weight: 800;
+        color: #ffffff;
     }
     QLabel#detailPrice {
-        font-size: 22px;
-        font-weight: bold;
-        color: #4caf50;
+        font-size: 24px;
+        font-weight: 800;
+        color: #10b981;
     }
     QLabel#sectionHeader {
         font-size: 13px;
-        font-weight: bold;
-        color: #7c83ff;
+        font-weight: 700;
+        color: #a78bfa;
         margin-top: 8px;
     }
     QPushButton#shopBtn {
-        background-color: #7c83ff;
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+            stop:0 #6366f1, stop:1 #8b5cf6);
         color: white;
         border: none;
-        border-radius: 6px;
+        border-radius: 8px;
         padding: 10px 28px;
         font-size: 14px;
-        font-weight: bold;
+        font-weight: 700;
     }
-    QPushButton#shopBtn:hover { background-color: #9198ff; }
+    QPushButton#shopBtn:hover {
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+            stop:0 #818cf8, stop:1 #a78bfa);
+    }
     QPushButton#closeBtn {
-        background-color: #3a3a5c;
-        color: #ccc;
+        background-color: #1c1c3a;
+        color: #94a3b8;
         border: none;
-        border-radius: 6px;
+        border-radius: 8px;
         padding: 8px 20px;
         font-size: 12px;
     }
-    QPushButton#closeBtn:hover { background-color: #4a4a6c; }
+    QPushButton#closeBtn:hover { background-color: #252550; }
     QTableWidget {
-        background-color: #141428;
-        alternate-background-color: #181830;
-        border: 1px solid #2a2a4c;
-        border-radius: 6px;
-        gridline-color: #1e1e3a;
+        background-color: #0a0a1e;
+        alternate-background-color: #0e0e24;
+        border: 1px solid #1c1c3a;
+        border-radius: 8px;
+        gridline-color: #151530;
         font-size: 12px;
-        selection-background-color: #2e2e6c;
+        selection-background-color: rgba(99, 102, 241, 0.25);
+        outline: none;
     }
     QTableWidget::item {
-        padding: 6px 8px;
-        border-bottom: 1px solid #1e1e3a;
+        padding: 8px 8px;
+        border-bottom: 1px solid #151530;
     }
     QTableWidget::item:selected {
-        background-color: #2e2e6c;
+        background-color: rgba(99, 102, 241, 0.2);
     }
     QHeaderView::section {
-        background-color: #0d0d24;
-        color: #7c83ff;
-        padding: 8px 8px;
+        background-color: #08081a;
+        color: #8b5cf6;
+        padding: 10px 8px;
         border: none;
-        border-right: 1px solid #1e1e3a;
-        border-bottom: 2px solid #7c83ff;
-        font-weight: bold;
+        border-right: 1px solid #151530;
+        border-bottom: 2px solid #6366f1;
+        font-weight: 700;
         font-size: 11px;
+    }
+    QScrollBar:vertical {
+        background-color: #0a0a1e;
+        width: 8px;
+        border: none;
+    }
+    QScrollBar::handle:vertical {
+        background-color: #1c1c3a;
+        border-radius: 4px;
+        min-height: 30px;
+    }
+    QScrollBar::handle:vertical:hover {
+        background-color: #6366f1;
+    }
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+        height: 0;
     }
 """
 

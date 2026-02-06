@@ -26,6 +26,7 @@ a = Analysis(
         'app.product_filter',
         'app.price_engine',
         'app.detail_view',
+        'app.splash',
     ],
     hookspath=[],
     hooksconfig={},

@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt
 
 from app.gui import MainWindow
+from app.splash import SplashScreen
 
 
 def setup_logging():
@@ -37,7 +38,10 @@ def main():
     app.setOrganizationName("Anus Scraper")
 
     window = MainWindow()
-    window.show()
+
+    splash = SplashScreen()
+    splash.finished.connect(window.show)
+    splash.start()
 
     sys.exit(app.exec())
 
