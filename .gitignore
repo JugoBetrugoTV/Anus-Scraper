@@ -8,7 +8,7 @@ dist/
 *.egg-info/
 *.egg
 *.spec
-!PreisHai.spec
+!AnusScraper.spec
 .env
 .venv
 venv/

@@ -1,6 +1,6 @@
 #!/bin/bash
 echo "============================================"
-echo "  PreisHai - Build Script"
+echo "  Anus Scraper - Build Script"
 echo "============================================"
 echo ""
 
@@ -10,7 +10,7 @@ pip install -r requirements.txt || { echo "FEHLER beim Installieren!"; exit 1; }
 echo ""
 echo "[2/3] Erstelle Executable..."
 pyinstaller --noconfirm --onefile --windowed \
-    --name "PreisHai" \
+    --name "AnusScraper" \
     --add-data "app:app" \
     main.py || { echo "FEHLER beim Erstellen!"; exit 1; }
 
@@ -18,5 +18,5 @@ echo ""
 echo "[3/3] Fertig!"
 echo ""
 echo "============================================"
-echo "  Die Datei befindet sich in: dist/PreisHai"
+echo "  Die Datei befindet sich in: dist/AnusScraper"
 echo "============================================"

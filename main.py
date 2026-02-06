@@ -1,5 +1,5 @@
 """
-PreisHai - European Price Comparison Tool
+Anus Scraper - European Price Comparison Tool
 Scrapes Geizhals.de and Google Shopping for the cheapest European offers.
 """
 
@@ -15,9 +15,9 @@ from app.gui import MainWindow
 
 
 def setup_logging():
-    log_dir = Path(os.path.expanduser("~")) / "PreisHai_debug"
+    log_dir = Path(os.path.expanduser("~")) / "AnusScraper_debug"
     log_dir.mkdir(exist_ok=True)
-    log_file = log_dir / "preishai.log"
+    log_file = log_dir / "anusscraper.log"
 
     logging.basicConfig(
         level=logging.DEBUG,
@@ -32,9 +32,9 @@ def setup_logging():
 def main():
     setup_logging()
     app = QApplication(sys.argv)
-    app.setApplicationName("PreisHai")
+    app.setApplicationName("Anus Scraper")
     app.setApplicationVersion("1.0.0")
-    app.setOrganizationName("PreisHai")
+    app.setOrganizationName("Anus Scraper")
 
     window = MainWindow()
     window.show()

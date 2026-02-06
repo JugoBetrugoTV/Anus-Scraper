@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-# PyInstaller spec file for PreisHai
+# PyInstaller spec file for Anus Scraper
 
 a = Analysis(
     ['main.py'],
@@ -42,7 +42,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='PreisHai',
+    name='AnusScraper',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

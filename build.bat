@@ -1,7 +1,7 @@
 @echo off
 setlocal enabledelayedexpansion
 echo ============================================
-echo   PreisHai - Build Script
+echo   Anus Scraper - Build Script
 echo   Kein Python noetig - alles automatisch!
 echo ============================================
 echo.
@@ -137,7 +137,7 @@ if errorlevel 1 (
 echo.
 echo [2/3] Erstelle EXE-Datei (das dauert 1-2 Minuten)...
 "%PYTHON_EXE%" -m PyInstaller --noconfirm --onefile --windowed ^
-    --name "PreisHai" ^
+    --name "AnusScraper" ^
     --add-data "app;app" ^
     "%PROJECT_DIR%main.py"
 if errorlevel 1 (
@@ -151,9 +151,9 @@ echo [3/3] Fertig!
 echo.
 echo ============================================
 echo   Die EXE-Datei befindet sich in:
-echo   %PROJECT_DIR%dist\PreisHai.exe
+echo   %PROJECT_DIR%dist\AnusScraper.exe
 echo.
-echo   Einfach PreisHai.exe doppelklicken!
+echo   Einfach AnusScraper.exe doppelklicken!
 echo ============================================
 echo.
 pause

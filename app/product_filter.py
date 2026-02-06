@@ -1,5 +1,5 @@
 """
-Strict product validation and model identity parsing for PreisHai.
+Strict product validation and model identity parsing for Anus Scraper.
 
 Two responsibilities:
 1. Filter: reject products that don't match the search query (wrong GPU, accessories)

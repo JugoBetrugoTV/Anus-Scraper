@@ -1,4 +1,4 @@
-# PreisHai - Europäischer Preisvergleich
+# Anus Scraper - Europäischer Preisvergleich
 
 Preisvergleichs-Tool ähnlich wie Geizhals.de und Idealo. Durchsucht Google Shopping nach den günstigsten Angeboten in Europa und zeigt die 20 besten Ergebnisse an.
 
@@ -26,7 +26,7 @@ python main.py
 build.bat
 ```
 
-Die fertige `PreisHai.exe` liegt dann in `dist/`.
+Die fertige `AnusScraper.exe` liegt dann in `dist/`.
 
 ### Option 3: Auf Linux/Mac bauen
 

@@ -1,5 +1,5 @@
 """
-Shop provider framework for PreisHai.
+Shop provider framework for Anus Scraper.
 
 Each provider implements the ShopProvider base class to fetch product data
 from a specific source (Geizhals, Google Shopping, Amazon, etc.).
@@ -76,7 +76,7 @@ CONDITION_OPTIONS = {
     "gebraucht": "used",
 }
 
-DEBUG_DIR = Path(os.path.expanduser("~")) / "PreisHai_debug"
+DEBUG_DIR = Path(os.path.expanduser("~")) / "AnusScraper_debug"
 
 # ---------------------------------------------------------------------------
 #  Unified HTTP error tuple (covers requests + curl_cffi)

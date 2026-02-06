@@ -1,5 +1,5 @@
 """
-PyQt6 GUI for PreisHai — European price comparison tool.
+PyQt6 GUI for Anus Scraper — European price comparison tool.
 Modern dark-themed interface with search, provider selection, filters,
 results table, and product detail view.
 """
@@ -285,7 +285,7 @@ class MainWindow(QMainWindow):
         self._init_ui()
 
     def _init_ui(self):
-        self.setWindowTitle("PreisHai - Preisvergleich")
+        self.setWindowTitle("Anus Scraper - Preisvergleich")
         self.setMinimumSize(1080, 720)
         self.resize(1280, 850)
         self.setStyleSheet(DARK_STYLE)
@@ -298,7 +298,7 @@ class MainWindow(QMainWindow):
 
         # ── Header ───────────────────────────────────────────
         header = QHBoxLayout()
-        title = QLabel("PreisHai")
+        title = QLabel("Anus Scraper")
         title.setObjectName("titleLabel")
         subtitle = QLabel(
             "Europäischer Preisvergleich — Finde die besten Deals"
@@ -531,7 +531,7 @@ class MainWindow(QMainWindow):
         if not results:
             import os
             debug_dir = os.path.join(
-                os.path.expanduser("~"), "PreisHai_debug",
+                os.path.expanduser("~"), "AnusScraper_debug",
             )
             self.status_bar.showMessage(
                 "Keine Ergebnisse gefunden. Versuche einen anderen "
