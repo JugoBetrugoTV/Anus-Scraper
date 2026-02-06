@@ -13,6 +13,7 @@ a = Analysis(
         'requests',
         'bs4',
         'lxml',
+        'curl_cffi',
     ],
     hookspath=[],
     hooksconfig={},

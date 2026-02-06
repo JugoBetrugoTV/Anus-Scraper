@@ -16,9 +16,26 @@ from pathlib import Path
 import requests
 from bs4 import BeautifulSoup, Tag
 
+# curl_cffi provides browser-grade TLS fingerprinting to bypass Cloudflare & bot detection
+try:
+    from curl_cffi import requests as curl_requests
+    HAS_CURL_CFFI = True
+except ImportError:
+    curl_requests = None
+    HAS_CURL_CFFI = False
+
 from app.models import Product
 
 logger = logging.getLogger(__name__)
+
+# Unified exception tuple for HTTP errors from either library
+_HTTP_ERRORS = [requests.RequestException, OSError]
+if HAS_CURL_CFFI:
+    try:
+        _HTTP_ERRORS.append(curl_requests.errors.RequestsError)
+    except (AttributeError, TypeError):
+        pass
+HTTP_ERRORS = tuple(_HTTP_ERRORS)
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
@@ -73,28 +90,60 @@ class PriceScraper:
     """Scrapes Geizhals.de and Google Shopping for European product prices."""
 
     def __init__(self):
-        self.session = requests.Session()
-        self._setup_session()
+        self._using_curl_cffi = False
+        self._geizhals_ready = False
         self._consent_handled = False
+        self._setup_session()
 
     def _setup_session(self):
-        ua = random.choice(USER_AGENTS)
-        self.session.headers.update({
-            "User-Agent": ua,
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-            "Accept-Language": "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7",
-            "Accept-Encoding": "gzip, deflate",
-            "DNT": "1",
-            "Connection": "keep-alive",
-            "Upgrade-Insecure-Requests": "1",
-            "Sec-Ch-Ua": '"Chromium";v="131", "Not_A Brand";v="24"',
-            "Sec-Ch-Ua-Mobile": "?0",
-            "Sec-Ch-Ua-Platform": '"Windows"',
-            "Sec-Fetch-Dest": "document",
-            "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Site": "none",
-            "Sec-Fetch-User": "?1",
-        })
+        """Set up HTTP session with browser-like TLS fingerprinting.
+
+        Uses curl_cffi with Chrome impersonation when available, which provides
+        a genuine browser TLS fingerprint that bypasses Cloudflare and Google
+        bot detection.  Falls back to plain requests with manual headers.
+        """
+        if HAS_CURL_CFFI:
+            try:
+                self.session = curl_requests.Session(impersonate="chrome120")
+                self._using_curl_cffi = True
+                logger.info("Using curl_cffi with Chrome TLS impersonation")
+            except Exception as e:
+                logger.warning(f"curl_cffi init failed ({e}), falling back to requests")
+                self.session = requests.Session()
+                self._using_curl_cffi = False
+        else:
+            logger.info(
+                "curl_cffi not available – using requests "
+                "(install curl_cffi for better anti-bot bypass)"
+            )
+            self.session = requests.Session()
+            self._using_curl_cffi = False
+
+        if self._using_curl_cffi:
+            # Impersonation already sets User-Agent, Sec-CH-UA, Accept-Encoding
+            # etc.  We only need to add German language preference.
+            self.session.headers.update({
+                "Accept-Language": "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7",
+            })
+        else:
+            # Full manual header set for plain requests library
+            ua = random.choice(USER_AGENTS)
+            self.session.headers.update({
+                "User-Agent": ua,
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+                "Accept-Language": "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7",
+                "Accept-Encoding": "gzip, deflate, br",
+                "DNT": "1",
+                "Connection": "keep-alive",
+                "Upgrade-Insecure-Requests": "1",
+                "Sec-Ch-Ua": '"Chromium";v="131", "Not_A Brand";v="24"',
+                "Sec-Ch-Ua-Mobile": "?0",
+                "Sec-Ch-Ua-Platform": '"Windows"',
+                "Sec-Fetch-Dest": "document",
+                "Sec-Fetch-Mode": "navigate",
+                "Sec-Fetch-Site": "none",
+                "Sec-Fetch-User": "?1",
+            })
 
     def _extract_price(self, text: str) -> Optional[float]:
         """Parse European price format (1.234,56 €) to float."""
@@ -127,8 +176,24 @@ class PriceScraper:
     #  GEIZHALS.DE SCRAPER
     # =========================================================
 
+    def _geizhals_warmup(self):
+        """Visit Geizhals homepage to establish Cloudflare cookies."""
+        if self._geizhals_ready:
+            return
+        try:
+            logger.info("Warming up Geizhals session (homepage visit)...")
+            resp = self.session.get("https://geizhals.de/", timeout=15)
+            logger.info(f"Geizhals homepage status: {resp.status_code}")
+            if resp.status_code == 200:
+                self._geizhals_ready = True
+            time.sleep(random.uniform(0.5, 1.0))
+        except HTTP_ERRORS as e:
+            logger.debug(f"Geizhals warmup failed: {e}")
+
     def _geizhals_search(self, query: str, progress_callback=None) -> list[dict]:
         """Search Geizhals.de and return list of product dicts with URL + name."""
+        self._geizhals_warmup()
+
         search_url = f"https://geizhals.de/?fs={quote_plus(query)}&hloc=at&hloc=de&hloc=eu"
         logger.info(f"Geizhals search: {search_url}")
 
@@ -136,12 +201,36 @@ class PriceScraper:
             progress_callback("Durchsuche Geizhals.de...", 10)
 
         try:
-            resp = self.session.get(search_url, timeout=20)
-            logger.info(f"Geizhals search status: {resp.status_code}")
+            resp = None
+            # Retry loop – Cloudflare may challenge the first request
+            for attempt in range(3):
+                resp = self.session.get(
+                    search_url,
+                    timeout=20,
+                    headers={"Referer": "https://geizhals.de/"},
+                )
+                logger.info(f"Geizhals search status: {resp.status_code} (attempt {attempt + 1})")
 
-            if resp.status_code != 200:
-                _save_debug_html("geizhals_search_error.html", resp.text, search_url)
-                logger.warning(f"Geizhals search returned {resp.status_code}")
+                if resp.status_code == 200:
+                    break
+
+                if resp.status_code == 403 and attempt < 2:
+                    wait = (attempt + 1) * 2
+                    logger.info(f"Cloudflare challenge detected, retrying in {wait}s...")
+                    _save_debug_html(f"geizhals_cf_{attempt}.html", resp.text, search_url)
+                    time.sleep(wait)
+                    # Re-warm to get fresh cookies
+                    self._geizhals_ready = False
+                    self._geizhals_warmup()
+                    continue
+
+                # Non-retryable status
+                break
+
+            if resp is None or resp.status_code != 200:
+                if resp is not None:
+                    _save_debug_html("geizhals_search_error.html", resp.text, search_url)
+                    logger.warning(f"Geizhals search returned {resp.status_code}")
                 return []
 
             soup = BeautifulSoup(resp.text, "lxml")
@@ -181,7 +270,7 @@ class PriceScraper:
             logger.info(f"Geizhals found {len(products)} product links")
             return products[:10]  # Top 10 matches
 
-        except requests.RequestException as e:
+        except HTTP_ERRORS as e:
             logger.error(f"Geizhals search request error: {e}")
             return []
 
@@ -191,7 +280,10 @@ class PriceScraper:
         logger.info(f"Geizhals offers: {product_url}")
 
         try:
-            resp = self.session.get(product_url, timeout=20)
+            resp = self.session.get(
+                product_url, timeout=20,
+                headers={"Referer": "https://geizhals.de/"},
+            )
             if resp.status_code != 200:
                 _save_debug_html("geizhals_offers_error.html", resp.text, product_url)
                 return []
@@ -230,7 +322,7 @@ class PriceScraper:
             logger.info(f"Geizhals extracted {len(offers)} offers for '{page_title}'")
             return offers
 
-        except requests.RequestException as e:
+        except HTTP_ERRORS as e:
             logger.error(f"Geizhals offers request error: {e}")
             return []
 
@@ -501,7 +593,7 @@ class PriceScraper:
             products = self._parse_google_results(soup, html_text)
             logger.info(f"Google Shopping extracted {len(products)} products")
 
-        except requests.RequestException as e:
+        except HTTP_ERRORS as e:
             logger.error(f"Google Shopping error: {e}")
 
         return products
