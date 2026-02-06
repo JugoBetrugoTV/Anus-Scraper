@@ -200,14 +200,15 @@ class GeizhalsProvider(ShopProvider):
 
             offers: list[Product] = []
 
-            # Strategy 1: structured offer rows
-            offer_rows = soup.select(
-                ".offer, .offers__row, tr.offer__row, [class*='offer']"
-            )
+            # Primary: div.offer rows (Geizhals structured offer list)
+            offer_rows = soup.select("div.offer")
             if not offer_rows:
+                # Broader fallback
                 offer_rows = soup.select(
-                    "div.variant, .product-offer, .price-list-row"
+                    ".offers__row, tr.offer__row, "
+                    "[class*='offerlist'] > div"
                 )
+
             for row in offer_rows:
                 offer = self._parse_offer_row(row, page_title)
                 if offer:
@@ -235,13 +236,20 @@ class GeizhalsProvider(ShopProvider):
     # ------------------------------------------------------------------
 
     def _parse_offer_row(self, row: Tag, product_title: str) -> Optional[Product]:
+        """Parse a single Geizhals offer row with correct CSS selectors."""
+
+        # --- Price ---
         price = None
-        for sel in [".offer__price", ".price", "[class*='price']", "span.gh_price"]:
-            el = row.select_one(sel)
-            if el:
-                price = self.extract_price(el.get_text(strip=True))
-                if price:
-                    break
+        price_el = row.select_one("span.gh_price")
+        if price_el:
+            price = self.extract_price(price_el.get_text(strip=True))
+        if price is None:
+            for sel in [".offer__price", ".price"]:
+                el = row.select_one(sel)
+                if el:
+                    price = self.extract_price(el.get_text(strip=True))
+                    if price:
+                        break
         if price is None:
             all_text = row.get_text(" ", strip=True)
             m = re.search(r'([\d.,]+)\s*€|€\s*([\d.,]+)', all_text)
@@ -250,56 +258,127 @@ class GeizhalsProvider(ShopProvider):
         if price is None:
             return None
 
+        # --- Merchant ---
         merchant = ""
-        for sel in [
-            ".offer__shop", ".merchant", ".shop-name",
-            "[class*='merchant']", "[class*='shop']",
-            "a[class*='logo']", ".offer__clickout",
-        ]:
-            el = row.select_one(sel)
-            if el:
-                merchant = el.get_text(strip=True)
-                if not merchant:
-                    merchant = el.get("title", "") or el.get("alt", "")
-                if merchant:
-                    break
+        # Primary: span.notrans inside .offer__merchant
+        merchant_el = row.select_one(".offer__merchant span.notrans")
+        if merchant_el:
+            merchant = merchant_el.get_text(strip=True)
         if not merchant:
-            img = row.select_one("img[alt]")
+            merchant_el = row.select_one("span.notrans")
+            if merchant_el:
+                merchant = merchant_el.get_text(strip=True)
+        if not merchant:
+            for sel in [".offer__merchant a", "a.offer__clickout",
+                        "a[data-merchant-name]"]:
+                el = row.select_one(sel)
+                if el:
+                    merchant = (
+                        el.get("data-merchant-name", "")
+                        or el.get("title", "")
+                        or el.get_text(strip=True)
+                    )
+                    if merchant:
+                        break
+        if not merchant:
+            img = row.select_one(".offer__merchant img[alt]")
+            if not img:
+                img = row.select_one("img[alt]")
             if img:
                 alt = img.get("alt", "").strip()
-                if alt and len(alt) < 50:
+                if alt and len(alt) < 60 and "€" not in alt:
                     merchant = alt
         if not merchant:
             merchant = "Unbekannter Händler"
 
+        # --- Link ---
         link = ""
-        for sel in [
-            ".offer__clickout", "a[href*='redir']", "a[href*='click']",
-            "a[rel='nofollow']", "a[target='_blank']",
-        ]:
+        for sel in ["a.offer_bt", "a.gh_offerlist__offerurl",
+                     "a.offer__clickout", "a[href*='redir']"]:
             el = row.select_one(sel)
             if el:
                 href = el.get("href", "")
                 if href:
-                    link = href if href.startswith("http") else f"https://geizhals.de{href}"
+                    link = (
+                        href if href.startswith("http")
+                        else f"https://geizhals.de{href}"
+                    )
                     break
         if not link:
             a = row.select_one("a[href]")
             if a:
                 href = a.get("href", "")
                 if href:
-                    link = href if href.startswith("http") else f"https://geizhals.de{href}"
+                    link = (
+                        href if href.startswith("http")
+                        else f"https://geizhals.de{href}"
+                    )
 
-        delivery = ""
-        for sel in [
-            ".offer__delivery", "[class*='delivery']",
-            "[class*='shipping']", "[class*='avail']",
-        ]:
-            el = row.select_one(sel)
-            if el:
-                delivery = el.get_text(strip=True)
-                if delivery:
-                    break
+        # --- Availability ---
+        availability = ""
+        row_classes = " ".join(row.get("class", []))
+        if "offer--available" in row_classes:
+            availability = "Auf Lager"
+        elif "offer--shortly" in row_classes:
+            availability = "Kurzfristig lieferbar"
+        elif "offer--unavailable" in row_classes:
+            availability = "Nicht verfügbar"
+
+        if not availability:
+            delivery_time_el = row.select_one(".offer__delivery-time")
+            if delivery_time_el:
+                availability = delivery_time_el.get_text(strip=True)
+
+        # --- Shipping ---
+        shipping_cost = 0.0
+        delivery_info = ""
+        shipping_el = row.select_one(".offer__delivery-payment")
+        if shipping_el:
+            ship_text = shipping_el.get_text(strip=True)
+            ship_upper = ship_text.upper()
+            if ("GRATISVERSAND" in ship_upper or "GRATIS" in ship_upper
+                    or "KOSTENLOS" in ship_upper):
+                delivery_info = "Kostenloser Versand"
+                shipping_cost = 0.0
+            else:
+                ship_match = re.search(
+                    r'([\d.,]+)\s*€|€\s*([\d.,]+)', ship_text,
+                )
+                if ship_match:
+                    parsed = self.extract_price(
+                        ship_match.group(1) or ship_match.group(2),
+                    )
+                    if parsed:
+                        shipping_cost = parsed
+                        delivery_info = f"Versand: {shipping_cost:.2f} €"
+                else:
+                    delivery_info = ship_text
+
+        if not delivery_info:
+            delivery_el = row.select_one(".offer__delivery")
+            if delivery_el:
+                delivery_info = delivery_el.get_text(" ", strip=True)[:80]
+
+        # --- Rating ---
+        rating = 0.0
+        reviews = 0
+        stars_el = row.select_one("span.gh_stars")
+        if stars_el:
+            title = stars_el.get("title", "")
+            r_match = re.search(r'([\d.,]+)\s*von\s*5', title)
+            if r_match:
+                try:
+                    rating = float(r_match.group(1).replace(",", "."))
+                except ValueError:
+                    pass
+        reviews_el = row.select_one(
+            ".rating_amount span, .offer__merchant-rating span",
+        )
+        if reviews_el:
+            r_text = reviews_el.get_text(strip=True)
+            r_num = re.search(r'(\d+)', r_text)
+            if r_num:
+                reviews = int(r_num.group(1))
 
         return Product(
             rank=0,
@@ -308,8 +387,12 @@ class GeizhalsProvider(ShopProvider):
             currency="€",
             merchant=merchant,
             link=link,
-            delivery_info=delivery,
+            delivery_info=delivery_info,
             source="Geizhals",
+            availability=availability,
+            shipping_cost=shipping_cost,
+            rating=rating,
+            reviews=reviews,
         )
 
     def _extract_by_pattern(
@@ -328,11 +411,17 @@ class GeizhalsProvider(ShopProvider):
             context = html[start:end]
 
             merchant = "Unbekannter Händler"
-            shop_m = re.search(r'title="([^"]{3,40})"', context)
+            shop_m = re.search(
+                r'class="notrans"[^>]*>([^<]{3,40})<', context,
+            )
             if shop_m:
-                cand = shop_m.group(1).strip()
-                if "€" not in cand and not cand.startswith("http"):
-                    merchant = cand
+                merchant = shop_m.group(1).strip()
+            else:
+                shop_m = re.search(r'title="([^"]{3,40})"', context)
+                if shop_m:
+                    cand = shop_m.group(1).strip()
+                    if "€" not in cand and not cand.startswith("http"):
+                        merchant = cand
 
             link = ""
             link_m = re.search(r'href="(https?://[^"]+)"', context)
@@ -364,11 +453,34 @@ class GeizhalsProvider(ShopProvider):
             for _ in range(8):
                 if parent is None:
                     break
-                a = parent.find("a", href=True) if isinstance(parent, Tag) else None
+                notrans = (
+                    parent.select_one("span.notrans")
+                    if isinstance(parent, Tag) else None
+                )
+                if notrans:
+                    merchant = notrans.get_text(strip=True)
+                    if merchant:
+                        a = (
+                            parent.find("a", href=True)
+                            if isinstance(parent, Tag) else None
+                        )
+                        if a:
+                            href = a.get("href", "")
+                            if href:
+                                link = (
+                                    href if href.startswith("http")
+                                    else f"https://geizhals.de{href}"
+                                )
+                        break
+                a = (
+                    parent.find("a", href=True)
+                    if isinstance(parent, Tag) else None
+                )
                 if a:
                     link_text = a.get_text(strip=True)
                     href = a.get("href", "")
-                    if link_text and len(link_text) < 50 and "€" not in link_text:
+                    if (link_text and len(link_text) < 50
+                            and "€" not in link_text):
                         merchant = link_text
                     if href:
                         link = (

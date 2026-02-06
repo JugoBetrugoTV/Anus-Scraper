@@ -14,6 +14,9 @@ from app.providers.google_shopping import GoogleShoppingProvider
 from app.providers.amazon import AmazonProvider
 from app.providers.mediamarkt import MediaMarktProvider
 from app.providers.alternate import AlternateProvider
+from app.providers.idealo import IdealoProvider
+from app.providers.notebooksbilliger import NotebooksbilligerProvider
+from app.providers.mindfactory import MindfactoryProvider
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +26,9 @@ def _get_all_providers() -> list[ShopProvider]:
     return [
         GeizhalsProvider(),
         GoogleShoppingProvider(),
+        IdealoProvider(),
+        NotebooksbilligerProvider(),
+        MindfactoryProvider(),
         AmazonProvider(),
         MediaMarktProvider(),
         AlternateProvider(),
@@ -107,11 +113,15 @@ class PriceEngine:
         if progress_callback:
             progress_callback("Ergebnisse werden sortiert...", 90)
 
-        # Deduplicate by (merchant, price)
-        seen: set[tuple[str, float]] = set()
+        # Deduplicate by (merchant, title-prefix, price)
+        seen: set[tuple[str, str, float]] = set()
         unique: list[Product] = []
         for p in all_products:
-            key = (p.merchant.lower().strip(), round(p.price, 2))
+            key = (
+                p.merchant.lower().strip(),
+                p.title.lower().strip()[:80],
+                round(p.price, 2),
+            )
             if key not in seen:
                 seen.add(key)
                 unique.append(p)

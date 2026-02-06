@@ -8,6 +8,9 @@ Architecture:
     ShopProvider (ABC)           – search interface & shared utilities
     ├── GeizhalsProvider         – geizhals.de price aggregator
     ├── GoogleShoppingProvider   – Google Shopping fallback
+    ├── IdealoProvider            – idealo.de price comparison
+    ├── NotebooksbilligerProvider – notebooksbilliger.de
+    ├── MindfactoryProvider      – mindfactory.de PC hardware
     ├── AmazonProvider           – placeholder
     ├── MediaMarktProvider       – placeholder
     └── AlternateProvider        – placeholder
