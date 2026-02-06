@@ -56,6 +56,7 @@ class Product:
     availability: str = ""
     source: str = ""
     description: str = ""
+    model_id: str = ""
 
     @property
     def price_display(self) -> str:

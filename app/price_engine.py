@@ -9,7 +9,7 @@ from typing import Optional
 
 from app.models import Product
 from app.providers import ShopProvider
-from app.product_filter import filter_products
+from app.product_filter import filter_products, compute_model_id
 from app.providers.geizhals import GeizhalsProvider
 from app.providers.google_shopping import GoogleShoppingProvider
 from app.providers.amazon import AmazonProvider
@@ -132,6 +132,11 @@ class PriceEngine:
             if key not in seen:
                 seen.add(key)
                 unique.append(p)
+
+        # Assign model IDs for grouping
+        for p in unique:
+            if not p.model_id:
+                p.model_id = compute_model_id(p.title)
 
         # Price filters
         if price_min is not None:

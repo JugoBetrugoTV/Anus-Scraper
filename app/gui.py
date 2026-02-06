@@ -21,7 +21,9 @@ from app.price_engine import PriceEngine
 from app.providers import EU_COUNTRIES
 from app.models import Product, AvailabilityStatus
 from app.detail_view import ProductDetailDialog
-from app.product_filter import detect_gpu_variants, parse_gpu_query
+from app.product_filter import (
+    detect_gpu_variants, parse_gpu_query, parse_gpu_title,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -276,6 +278,9 @@ class MainWindow(QMainWindow):
         self.engine = PriceEngine()
         self.worker: Optional[SearchWorker] = None
         self.current_results: list[Product] = []
+        self.display_rows: list[Product] = []
+        self.model_groups: dict[str, list[Product]] = {}
+        self._is_model_view = False
         self._provider_checkboxes: dict[str, QCheckBox] = {}
         self._init_ui()
 
@@ -546,13 +551,60 @@ class MainWindow(QMainWindow):
             )
             return
 
-        self._populate_table(results)
+        query = self.search_input.text().strip()
+        is_gpu = parse_gpu_query(query) is not None
 
-        cheapest = results[0]
-        self.status_bar.showMessage(
-            f"{len(results)} Ergebnisse — Günstigster Preis: "
-            f"{cheapest.price_display} bei {cheapest.merchant}"
-        )
+        if is_gpu:
+            self._show_model_grouped(results)
+        else:
+            self.model_groups = {}
+            self._is_model_view = False
+            self.display_rows = results
+            self._populate_table(results)
+            cheapest = results[0]
+            self.status_bar.showMessage(
+                f"{len(results)} Ergebnisse — Günstigster Preis: "
+                f"{cheapest.price_display} bei {cheapest.merchant}"
+            )
+
+    def _show_model_grouped(self, results: list[Product]):
+        """Group results by model_id and display one row per model."""
+        from collections import defaultdict
+
+        groups: dict[str, list[Product]] = defaultdict(list)
+        for p in results:
+            mid = p.model_id if p.model_id else p.title
+            groups[mid].append(p)
+
+        self.model_groups = dict(groups)
+        self._is_model_view = True
+
+        # Build representative list — cheapest offer per model group
+        representatives: list[Product] = []
+        for model_id, offers in self.model_groups.items():
+            offers.sort(key=lambda p: p.price)
+            representatives.append(offers[0])
+
+        representatives.sort(key=lambda p: p.price)
+        for i, p in enumerate(representatives, 1):
+            p.rank = i
+
+        self.display_rows = representatives
+        self._populate_model_table(representatives)
+
+        n_models = len(representatives)
+        n_offers = len(results)
+        cheapest = representatives[0]
+        if n_models != n_offers:
+            self.status_bar.showMessage(
+                f"{n_models} Modelle gefunden ({n_offers} Angebote) — "
+                f"Günstigster Preis: {cheapest.price_display}"
+            )
+        else:
+            self.status_bar.showMessage(
+                f"{n_models} Ergebnisse — Günstigster Preis: "
+                f"{cheapest.price_display} bei {cheapest.merchant}"
+            )
 
     def _on_error(self, error_msg: str):
         self._reset_search_ui()
@@ -573,6 +625,11 @@ class MainWindow(QMainWindow):
     # ── Table population ───────────────────────────────────────
 
     def _populate_table(self, products: list[Product]):
+        # Reset headers (may have been changed by model table)
+        self.table.setHorizontalHeaderLabels([
+            "#", "Produkt", "Preis", "Versand",
+            "Händler", "Quelle", "Verfügbarkeit",
+        ])
         self.table.setRowCount(len(products))
 
         # Check if this is a GPU search — show variant tags if so
@@ -671,11 +728,151 @@ class MainWindow(QMainWindow):
 
         self.table.resizeRowsToContents()
 
+    # ── Model-grouped table ───────────────────────────────────
+
+    def _populate_model_table(self, representatives: list[Product]):
+        """Populate table with one row per model (GPU grouped view)."""
+        self.table.setHorizontalHeaderLabels([
+            "#", "Modell", "ab Preis", "Versand",
+            "Händler", "Quelle", "Verfügbarkeit",
+        ])
+        self.table.setRowCount(len(representatives))
+
+        cheapest_price = (
+            min(p.price for p in representatives) if representatives else 0
+        )
+
+        for row, product in enumerate(representatives):
+            model_id = product.model_id
+            offers = self.model_groups.get(model_id, [product])
+            n_offers = len(offers)
+            is_best = (product.price == cheapest_price)
+
+            # #
+            rank_item = QTableWidgetItem(str(product.rank))
+            rank_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            if is_best:
+                rank_item.setBackground(QColor("#1a3a1a"))
+            self.table.setItem(row, 0, rank_item)
+
+            # Modell (parsed display name)
+            identity = parse_gpu_title(product.title)
+            display_name = (
+                identity.display_name if identity.chip else product.title
+            )
+            title_item = QTableWidgetItem(display_name)
+            title_item.setToolTip(product.title)
+            if is_best:
+                title_item.setBackground(QColor("#1a3a1a"))
+            self.table.setItem(row, 1, title_item)
+
+            # ab Preis
+            price_text = f"ab {product.price_display}"
+            price_item = QTableWidgetItem(price_text)
+            price_item.setTextAlignment(
+                Qt.AlignmentFlag.AlignRight
+                | Qt.AlignmentFlag.AlignVCenter,
+            )
+            if is_best:
+                price_item.setForeground(QColor("#4caf50"))
+                price_item.setBackground(QColor("#1a3a1a"))
+            elif row < 3:
+                price_item.setForeground(QColor("#8bc34a"))
+            elif row < 8:
+                price_item.setForeground(QColor("#ffeb3b"))
+            else:
+                price_item.setForeground(QColor("#ff9800"))
+            font = price_item.font()
+            font.setBold(True)
+            price_item.setFont(font)
+            self.table.setItem(row, 2, price_item)
+
+            # Versand (from cheapest offer)
+            ship_text = product.shipping_display
+            ship_item = QTableWidgetItem(ship_text)
+            ship_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            if "kostenlos" in ship_text.lower() or ship_text == "—":
+                ship_item.setForeground(QColor("#4caf50"))
+            else:
+                ship_item.setForeground(QColor("#aaa"))
+            if is_best:
+                ship_item.setBackground(QColor("#1a3a1a"))
+            self.table.setItem(row, 3, ship_item)
+
+            # Händler (count or single name)
+            if n_offers > 1:
+                merchant_text = f"{n_offers} Händler"
+                tooltip_lines = [
+                    f"• {o.merchant} — {o.price_display}"
+                    for o in offers
+                ]
+                tooltip = "\n".join(tooltip_lines)
+            else:
+                merchant_text = product.merchant
+                tooltip = product.merchant
+            merchant_item = QTableWidgetItem(merchant_text)
+            merchant_item.setToolTip(tooltip)
+            if is_best:
+                merchant_item.setBackground(QColor("#1a3a1a"))
+            self.table.setItem(row, 4, merchant_item)
+
+            # Quelle
+            source_text = product.source or "—"
+            source_item = QTableWidgetItem(source_text)
+            source_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            source_color = SOURCE_COLORS.get(source_text, "#888")
+            source_item.setForeground(QColor(source_color))
+            font = source_item.font()
+            font.setBold(True)
+            source_item.setFont(font)
+            if is_best:
+                source_item.setBackground(QColor("#1a3a1a"))
+            self.table.setItem(row, 5, source_item)
+
+            # Verfügbarkeit (best from group)
+            best_avail = self._best_availability(offers)
+            avail_text = best_avail.label
+            avail_item = QTableWidgetItem(avail_text)
+            avail_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            avail_item.setForeground(QColor(best_avail.color))
+            font = avail_item.font()
+            font.setBold(True)
+            avail_item.setFont(font)
+            if is_best:
+                avail_item.setBackground(QColor("#1a3a1a"))
+            self.table.setItem(row, 6, avail_item)
+
+        self.table.resizeRowsToContents()
+
+    @staticmethod
+    def _best_availability(offers: list[Product]) -> AvailabilityStatus:
+        """Return the best availability status from a list of offers."""
+        priority = [
+            AvailabilityStatus.IN_STOCK,
+            AvailabilityStatus.LOW_STOCK,
+            AvailabilityStatus.SHORTLY,
+            AvailabilityStatus.PREORDER,
+            AvailabilityStatus.UNKNOWN,
+            AvailabilityStatus.OUT_OF_STOCK,
+        ]
+        statuses = {p.availability_status for p in offers}
+        for status in priority:
+            if status in statuses:
+                return status
+        return AvailabilityStatus.UNKNOWN
+
     # ── Cell interaction ───────────────────────────────────────
 
     def _on_cell_double_click(self, row: int, col: int):
-        if row >= len(self.current_results):
+        if row >= len(self.display_rows):
             return
-        product = self.current_results[row]
-        dlg = ProductDetailDialog(product, self)
+        product = self.display_rows[row]
+
+        if self._is_model_view:
+            offers = self.model_groups.get(
+                product.model_id, [product],
+            )
+            dlg = ProductDetailDialog(product, self, offers=offers)
+        else:
+            dlg = ProductDetailDialog(product, self)
         dlg.exec()
