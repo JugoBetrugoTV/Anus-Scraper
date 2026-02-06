@@ -23,10 +23,24 @@ if exist "%PYTHON_EXE%" (
 )
 
 REM Pruefen ob systemweites Python vorhanden
+REM WICHTIG: Windows hat einen Fake python.exe der zum Microsoft Store leitet
+REM Deshalb testen wir ob Python WIRKLICH funktioniert mit --version
 set PYTHON_CMD=
-where python >nul 2>&1 && set PYTHON_CMD=python
+python --version >nul 2>&1
+if not errorlevel 1 (
+    set PYTHON_CMD=python
+)
 if not defined PYTHON_CMD (
-    where py >nul 2>&1 && set PYTHON_CMD=py
+    py --version >nul 2>&1
+    if not errorlevel 1 (
+        set PYTHON_CMD=py
+    )
+)
+if not defined PYTHON_CMD (
+    python3 --version >nul 2>&1
+    if not errorlevel 1 (
+        set PYTHON_CMD=python3
+    )
 )
 if defined PYTHON_CMD (
     echo System-Python gefunden: %PYTHON_CMD%
