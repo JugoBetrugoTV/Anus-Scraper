@@ -65,201 +65,198 @@ CONTEXT_HARD_LIMIT = 8000
 
 DARK_STYLE = """
 QMainWindow, QDialog {
-    background-color: #0f0f1a;
+    background-color: #000000;
 }
 QWidget {
-    color: #e8e8f0;
-    font-family: 'Segoe UI', 'SF Pro Display', Arial, sans-serif;
-    font-size: 14px;
+    color: #f5f5f7;
+    font-family: -apple-system, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 13px;
 }
 QTextBrowser {
-    background-color: #12121f;
+    background-color: #000000;
     border: none;
     border-radius: 0px;
-    padding: 12px;
-    color: #e8e8f0;
-    selection-background-color: #7c3aed;
+    padding: 16px;
+    color: #f5f5f7;
+    selection-background-color: #0a84ff;
 }
 QPlainTextEdit {
-    background-color: #1a1a2e;
-    border: 1px solid rgba(124, 58, 237, 0.3);
+    background-color: #1c1c1e;
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 12px;
-    padding: 12px 14px;
-    color: #e8e8f0;
-    selection-background-color: #7c3aed;
+    padding: 12px 16px;
+    color: #f5f5f7;
+    selection-background-color: #0a84ff;
 }
 QPlainTextEdit:focus {
-    border: 1px solid rgba(124, 58, 237, 0.7);
+    border: 1px solid rgba(10, 132, 255, 0.5);
 }
 QLineEdit {
-    background-color: #1a1a2e;
-    border: 1px solid rgba(124, 58, 237, 0.25);
-    border-radius: 8px;
+    background-color: #1c1c1e;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
     padding: 8px 14px;
-    color: #e8e8f0;
+    color: #f5f5f7;
 }
 QLineEdit:focus {
-    border: 1px solid rgba(124, 58, 237, 0.6);
+    border: 1px solid rgba(10, 132, 255, 0.5);
 }
 QPushButton {
-    background-color: #7c3aed;
+    background-color: #0a84ff;
     color: white;
     border: none;
-    border-radius: 8px;
-    padding: 10px 22px;
-    font-weight: 600;
+    border-radius: 10px;
+    padding: 9px 20px;
+    font-weight: 500;
     font-size: 13px;
 }
 QPushButton:hover {
-    background-color: #8b5cf6;
+    background-color: #409cff;
 }
 QPushButton:pressed {
-    background-color: #6d28d9;
+    background-color: #0071e3;
 }
 QPushButton:disabled {
-    background-color: #2a2a3e;
-    color: #555;
+    background-color: #1c1c1e;
+    color: #48484a;
 }
 QPushButton#secondary {
-    background-color: rgba(124, 58, 237, 0.15);
-    color: #a78bfa;
-    border: 1px solid rgba(124, 58, 237, 0.25);
+    background-color: #2c2c2e;
+    color: #f5f5f7;
+    border: none;
 }
 QPushButton#secondary:hover {
-    background-color: rgba(124, 58, 237, 0.25);
-    border: 1px solid rgba(124, 58, 237, 0.4);
+    background-color: #3a3a3c;
 }
 QPushButton#danger {
-    background-color: rgba(239, 68, 68, 0.2);
-    color: #f87171;
-    border: 1px solid rgba(239, 68, 68, 0.3);
+    background-color: rgba(255, 69, 58, 0.15);
+    color: #ff453a;
+    border: none;
 }
 QPushButton#danger:hover {
-    background-color: rgba(239, 68, 68, 0.35);
-    border: 1px solid rgba(239, 68, 68, 0.5);
+    background-color: rgba(255, 69, 58, 0.25);
 }
 QPushButton#small {
     background-color: transparent;
-    color: #6b6b80;
-    padding: 3px 10px;
+    color: #86868b;
+    padding: 3px 8px;
     font-size: 11px;
     font-weight: normal;
     border: none;
 }
 QPushButton#small:hover {
-    color: #a78bfa;
+    color: #0a84ff;
 }
 QPushButton#toggle_on {
-    background-color: rgba(52, 211, 153, 0.2);
-    color: #34d399;
-    border: 1px solid rgba(52, 211, 153, 0.3);
+    background-color: #30d158;
+    color: white;
+    border: none;
     padding: 4px 10px;
     font-size: 11px;
-    font-weight: normal;
+    font-weight: 500;
     border-radius: 6px;
 }
 QPushButton#toggle_off {
-    background-color: rgba(100, 100, 120, 0.15);
-    color: #6b6b80;
-    border: 1px solid rgba(100, 100, 120, 0.25);
+    background-color: #2c2c2e;
+    color: #86868b;
+    border: none;
     padding: 4px 10px;
     font-size: 11px;
     font-weight: normal;
     border-radius: 6px;
 }
 QComboBox {
-    background-color: #1a1a2e;
-    border: 1px solid rgba(124, 58, 237, 0.25);
-    border-radius: 8px;
+    background-color: #1c1c1e;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
     padding: 7px 14px;
-    color: #e8e8f0;
+    color: #f5f5f7;
 }
 QComboBox:hover {
-    border: 1px solid rgba(124, 58, 237, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.15);
 }
 QComboBox::drop-down {
     border: none;
     width: 20px;
 }
 QComboBox QAbstractItemView {
-    background-color: #1a1a2e;
-    border: 1px solid rgba(124, 58, 237, 0.3);
-    border-radius: 6px;
-    color: #e8e8f0;
-    selection-background-color: #7c3aed;
+    background-color: #2c2c2e;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    color: #f5f5f7;
+    selection-background-color: #0a84ff;
     padding: 4px;
 }
 QDoubleSpinBox {
-    background-color: #1a1a2e;
-    border: 1px solid rgba(124, 58, 237, 0.25);
-    border-radius: 8px;
+    background-color: #1c1c1e;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
     padding: 7px;
-    color: #e8e8f0;
+    color: #f5f5f7;
 }
 QLabel {
-    color: #9898b0;
+    color: #86868b;
 }
 QLabel#title {
-    color: #a78bfa;
-    font-size: 20px;
+    color: #f5f5f7;
+    font-size: 18px;
     font-weight: 700;
-    letter-spacing: 1px;
+    letter-spacing: -0.3px;
 }
 QLabel#token_counter {
-    color: #5a5a70;
+    color: #48484a;
     font-size: 11px;
 }
 QListWidget {
     background-color: transparent;
     border: none;
-    padding: 2px;
-    color: #d0d0e0;
+    padding: 0px;
+    color: #f5f5f7;
     outline: none;
 }
 QListWidget::item {
     padding: 10px 12px;
-    border-radius: 8px;
-    margin-bottom: 2px;
-    border: 1px solid transparent;
+    border-radius: 10px;
+    margin-bottom: 1px;
+    border: none;
 }
 QListWidget::item:selected {
-    background-color: rgba(124, 58, 237, 0.2);
-    border: 1px solid rgba(124, 58, 237, 0.35);
-    color: #e8e8f0;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #f5f5f7;
 }
 QListWidget::item:hover:!selected {
-    background-color: rgba(124, 58, 237, 0.08);
-    border: 1px solid rgba(124, 58, 237, 0.15);
+    background-color: rgba(255, 255, 255, 0.05);
 }
 QSplitter::handle {
-    background-color: rgba(124, 58, 237, 0.15);
+    background-color: rgba(255, 255, 255, 0.06);
     width: 1px;
 }
 QProgressBar {
-    background-color: #1a1a2e;
-    border: 1px solid rgba(124, 58, 237, 0.2);
-    border-radius: 6px;
+    background-color: #1c1c1e;
+    border: none;
+    border-radius: 4px;
     text-align: center;
-    color: #e8e8f0;
+    color: #f5f5f7;
     font-size: 11px;
-    min-height: 8px;
+    min-height: 4px;
+    max-height: 4px;
 }
 QProgressBar::chunk {
-    background-color: #7c3aed;
-    border-radius: 5px;
+    background-color: #0a84ff;
+    border-radius: 4px;
 }
 QScrollBar:vertical {
     background-color: transparent;
-    width: 8px;
+    width: 6px;
     margin: 0;
 }
 QScrollBar::handle:vertical {
-    background-color: rgba(124, 58, 237, 0.3);
-    border-radius: 4px;
-    min-height: 30px;
+    background-color: rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
+    min-height: 40px;
 }
 QScrollBar::handle:vertical:hover {
-    background-color: rgba(124, 58, 237, 0.5);
+    background-color: rgba(255, 255, 255, 0.25);
 }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
     height: 0;
@@ -269,14 +266,14 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
 }
 QScrollBar:horizontal {
     background-color: transparent;
-    height: 8px;
+    height: 6px;
 }
 QScrollBar::handle:horizontal {
-    background-color: rgba(124, 58, 237, 0.3);
-    border-radius: 4px;
+    background-color: rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
 }
 QScrollBar::handle:horizontal:hover {
-    background-color: rgba(124, 58, 237, 0.5);
+    background-color: rgba(255, 255, 255, 0.25);
 }
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
     width: 0;
@@ -286,27 +283,32 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
 }
 """
 
-# Theme color definitions: (primary, primary_light, accent, bg_dark, bg_mid, bg_light)
+# Apple-inspired theme color palettes
 THEMES = {
-    "Lila (Standard)": {
-        "primary": "#7c3aed", "primary_light": "#a78bfa", "primary_rgb": "124,58,237",
-        "accent": "#34d399", "accent_rgb": "52,211,153",
-        "bg_dark": "#0a0a14", "bg_mid": "#0f0f1a", "bg_light": "#1a1a2e", "bg_chat": "#12121f",
+    "Blau (Standard)": {
+        "primary": "#0a84ff", "primary_light": "#409cff", "primary_rgb": "10,132,255",
+        "accent": "#30d158", "accent_rgb": "48,209,88",
+        "bg_dark": "#000000", "bg_mid": "#000000", "bg_light": "#1c1c1e", "bg_chat": "#000000",
     },
-    "Ozean Blau": {
-        "primary": "#0ea5e9", "primary_light": "#7dd3fc", "primary_rgb": "14,165,233",
-        "accent": "#34d399", "accent_rgb": "52,211,153",
-        "bg_dark": "#0a1014", "bg_mid": "#0c1520", "bg_light": "#152232", "bg_chat": "#0f1a28",
+    "Lila": {
+        "primary": "#bf5af2", "primary_light": "#da8fff", "primary_rgb": "191,90,242",
+        "accent": "#64d2ff", "accent_rgb": "100,210,255",
+        "bg_dark": "#000000", "bg_mid": "#000000", "bg_light": "#1c1c1e", "bg_chat": "#000000",
     },
-    "Cyber Grün": {
-        "primary": "#22c55e", "primary_light": "#86efac", "primary_rgb": "34,197,94",
-        "accent": "#fbbf24", "accent_rgb": "251,191,36",
-        "bg_dark": "#0a140a", "bg_mid": "#0f1a0f", "bg_light": "#1a2e1a", "bg_chat": "#121f12",
+    "Grün": {
+        "primary": "#30d158", "primary_light": "#6ee77f", "primary_rgb": "48,209,88",
+        "accent": "#ffd60a", "accent_rgb": "255,214,10",
+        "bg_dark": "#000000", "bg_mid": "#000000", "bg_light": "#1c1c1e", "bg_chat": "#000000",
     },
-    "Blutrot": {
-        "primary": "#ef4444", "primary_light": "#fca5a5", "primary_rgb": "239,68,68",
-        "accent": "#fbbf24", "accent_rgb": "251,191,36",
-        "bg_dark": "#140a0a", "bg_mid": "#1a0f0f", "bg_light": "#2e1a1a", "bg_chat": "#1f1212",
+    "Rot": {
+        "primary": "#ff453a", "primary_light": "#ff6961", "primary_rgb": "255,69,58",
+        "accent": "#ff9f0a", "accent_rgb": "255,159,10",
+        "bg_dark": "#000000", "bg_mid": "#000000", "bg_light": "#1c1c1e", "bg_chat": "#000000",
+    },
+    "Orange": {
+        "primary": "#ff9f0a", "primary_light": "#ffb340", "primary_rgb": "255,159,10",
+        "accent": "#30d158", "accent_rgb": "48,209,88",
+        "bg_dark": "#000000", "bg_mid": "#000000", "bg_light": "#1c1c1e", "bg_chat": "#000000",
     },
 }
 
@@ -316,15 +318,10 @@ def _generate_stylesheet(theme: dict) -> str:
     p = theme["primary"]
     pl = theme["primary_light"]
     pr = theme["primary_rgb"]
-    bd = theme["bg_dark"]
-    bm = theme["bg_mid"]
     bl = theme["bg_light"]
-    bc = theme["bg_chat"]
-    return DARK_STYLE.replace("#7c3aed", p).replace("#a78bfa", pl).replace(
-        "124,58,237", pr
-    ).replace("#0a0a14", bd).replace("#0f0f1a", bm).replace(
-        "#1a1a2e", bl
-    ).replace("#12121f", bc)
+    return DARK_STYLE.replace("#0a84ff", p).replace("#409cff", pl).replace(
+        "10,132,255", pr
+    ).replace("#1c1c1e", bl)
 
 
 def _get_theme_colors(theme_name: str) -> dict:
@@ -357,16 +354,13 @@ def _convert_tables(text: str) -> str:
             and line.startswith("|")
             and _RE_TABLE_SEP.match(lines[i + 1].strip())
         ):
-            t = _tc()
-            pr = t["primary_rgb"]
-            pl = t["primary_light"]
-            table_html = '<table style="border-collapse:collapse; margin:8px 0; border-radius:8px;">'
+            table_html = '<table style="border-collapse:collapse; margin:8px 0; width:100%;">'
             cols = [c.strip() for c in line.strip("|").split("|")]
             table_html += "<tr>"
             for col in cols:
                 table_html += (
-                    f'<th style="border:1px solid rgba({pr},0.2); padding:8px 12px; '
-                    f'background-color:rgba({pr},0.1); color:{pl}; font-weight:600;">{col}</th>'
+                    f'<th style="border-bottom:1px solid rgba(255,255,255,0.1); padding:8px 12px; '
+                    f'color:#f5f5f7; font-weight:600; text-align:left; font-size:12px;">{col}</th>'
                 )
             table_html += "</tr>"
             i += 2
@@ -374,7 +368,7 @@ def _convert_tables(text: str) -> str:
                 cols = [c.strip() for c in lines[i].strip().strip("|").split("|")]
                 table_html += "<tr>"
                 for col in cols:
-                    table_html += f'<td style="border:1px solid rgba({pr},0.15); padding:8px 12px;">{col}</td>'
+                    table_html += f'<td style="border-bottom:1px solid rgba(255,255,255,0.04); padding:8px 12px; font-size:13px;">{col}</td>'
                 table_html += "</tr>"
                 i += 1
             table_html += "</table>"
@@ -406,37 +400,38 @@ def markdown_to_html(text: str, msg_index: int = -1) -> str:
         if msg_index >= 0:
             copy_link = (
                 f'<a href="action:copycode:{msg_index}:{idx}" '
-                f'style="color:#6b6b80; font-size:11px; text-decoration:none; float:right;">'
-                f'kopieren</a>'
+                f'style="color:#48484a; font-size:11px; text-decoration:none; float:right;">'
+                f'Kopieren</a>'
             )
             save_link = (
                 f'<a href="action:savecode:{msg_index}:{idx}" '
-                f'style="color:#6b6b80; font-size:11px; text-decoration:none; float:right; margin-right:10px;">'
-                f'speichern</a>'
+                f'style="color:#48484a; font-size:11px; text-decoration:none; float:right; margin-right:10px;">'
+                f'Speichern</a>'
             )
         lang_badge = ""
         if lang:
             lang_badge = (
-                f'<span style="color:{pl}; font-size:10px; font-weight:600; '
-                f'text-transform:uppercase; letter-spacing:1px;">{lang}</span>'
+                f'<span style="color:#86868b; font-size:10px; font-weight:600; '
+                f'text-transform:uppercase; letter-spacing:0.5px;">{lang}</span>'
             )
         return (
-            f'<div style="background-color:{bd}; border:1px solid rgba({pr},0.2); '
-            f'border-radius:10px; padding:12px 14px; margin:8px 0; '
-            f'font-family:\'JetBrains Mono\',Consolas,monospace; font-size:13px; '
-            f'white-space:pre-wrap; color:#c9d1d9; line-height:1.5;">'
-            f'<div style="margin-bottom:6px;">{lang_badge}{copy_link}{save_link}</div>'
+            f'<div style="background-color:#0d0d0d; '
+            f'border-radius:12px; padding:14px 16px; margin:8px 0; '
+            f'font-family:\'SF Mono\',\'JetBrains Mono\',Menlo,Consolas,monospace; font-size:12px; '
+            f'white-space:pre-wrap; color:#e5e5e5; line-height:1.55;">'
+            f'<div style="margin-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:6px;">'
+            f'{lang_badge}{copy_link}{save_link}</div>'
             f'{code}</div>'
         )
 
     text = _RE_CODE_BLOCK.sub(_replace_code_block, text)
     text = _RE_INLINE_CODE.sub(
-        f'<code style="background-color:rgba({pr},0.15); padding:2px 7px; border-radius:4px; '
-        f'font-family:Consolas,monospace; font-size:13px; color:#c4b5fd;">\\1</code>',
+        f'<code style="background-color:rgba(255,255,255,0.08); padding:2px 6px; border-radius:5px; '
+        f'font-family:\'SF Mono\',Menlo,Consolas,monospace; font-size:12px; color:#e5e5e5;">\\1</code>',
         text,
     )
     text = _RE_LINK.sub(
-        r'<a href="\2" style="color:#818cf8; text-decoration:none; border-bottom:1px solid rgba(129,140,248,0.3);">\1</a>',
+        f'<a href="\\2" style="color:{p}; text-decoration:none;">\\1</a>',
         text,
     )
     text = _RE_STRIKETHROUGH.sub(r"<del>\1</del>", text)
@@ -444,15 +439,15 @@ def markdown_to_html(text: str, msg_index: int = -1) -> str:
     text = _RE_BOLD_UNDER.sub(r"<b>\1</b>", text)
     text = _RE_ITALIC_STAR.sub(r"<i>\1</i>", text)
     text = _RE_ITALIC_UNDER.sub(r"<i>\1</i>", text)
-    text = _RE_H3.sub(f'<b style="font-size:15px; color:#c4b5fd;">\\1</b>', text)
-    text = _RE_H2.sub(f'<b style="font-size:17px; color:{pl};">\\1</b>', text)
-    text = _RE_H1.sub(f'<b style="font-size:19px; color:{pl};">\\1</b>', text)
+    text = _RE_H3.sub(f'<b style="font-size:14px; color:#f5f5f7;">\\1</b>', text)
+    text = _RE_H2.sub(f'<b style="font-size:16px; color:#f5f5f7;">\\1</b>', text)
+    text = _RE_H1.sub(f'<b style="font-size:18px; color:#f5f5f7;">\\1</b>', text)
     text = _RE_BLOCKQUOTE.sub(
-        f'<div style="border-left:3px solid {p}; padding-left:12px; margin:6px 0; color:#9898b0;">\\1</div>',
+        f'<div style="border-left:3px solid rgba(255,255,255,0.15); padding-left:12px; margin:6px 0; color:#86868b;">\\1</div>',
         text,
     )
     text = _RE_HR.sub(
-        f'<hr style="border:none; border-top:1px solid rgba({pr},0.2); margin:10px 0;">',
+        f'<hr style="border:none; border-top:1px solid rgba(255,255,255,0.06); margin:12px 0;">',
         text,
     )
     text = _convert_tables(text)
@@ -463,7 +458,7 @@ def markdown_to_html(text: str, msg_index: int = -1) -> str:
 
 
 def _build_message_html(role: str, content: str, time_str: str, streaming: bool = False, msg_index: int = -1, images: list[str] | None = None, rating: int = 0) -> str:
-    """Build HTML for a single chat message with clickable copy/edit links."""
+    """Build HTML for a single chat message — Apple iMessage-inspired."""
     t = _tc()
     pr = t["primary_rgb"]
     pl = t["primary_light"]
@@ -476,99 +471,91 @@ def _build_message_html(role: str, content: str, time_str: str, streaming: bool 
             img_html += (
                 f'<div style="margin:6px 0;">'
                 f'<img src="data:image/png;base64,{b64}" '
-                f'style="max-width:200px; max-height:150px; border-radius:8px; '
-                f'border:1px solid rgba({pr},0.2);">'
+                f'style="max-width:220px; max-height:160px; border-radius:14px;">'
                 f'</div>'
             )
     if role == "user":
         rendered = html.escape(content).replace("\n", "<br>")
-        link_style = 'color:#5a5a70; font-size:11px; text-decoration:none;'
-        copy_link = f'<a href="action:copy:{msg_index}" style="{link_style}">kopieren</a>'
-        edit_link = f'<a href="action:edit:{msg_index}" style="{link_style}">bearbeiten</a>'
-        delete_link = f'<a href="action:delete:{msg_index}" style="{link_style}">entfernen</a>'
+        link_style = 'color:rgba(255,255,255,0.3); font-size:11px; text-decoration:none;'
+        copy_link = f'<a href="action:copy:{msg_index}" style="{link_style}">Kopieren</a>'
+        edit_link = f'<a href="action:edit:{msg_index}" style="{link_style}">Bearbeiten</a>'
+        delete_link = f'<a href="action:delete:{msg_index}" style="{link_style}">Entfernen</a>'
         return (
-            f'<div style="margin:10px 0; padding:14px 18px; '
-            f'background: linear-gradient(135deg, rgba({pr},0.25), rgba({pr},0.12)); '
-            f'border:1px solid rgba({pr},0.2); '
-            f'border-radius:16px 16px 4px 16px; '
-            f'max-width:78%; margin-left:auto; text-align:right;">'
-            f'<div style="margin-bottom:6px;">'
-            f'<span style="color:{pl}; font-weight:600; font-size:12px;">Du</span></div>'
+            f'<div style="margin:4px 0; padding:12px 16px; '
+            f'background:{p}; '
+            f'border-radius:18px 18px 4px 18px; '
+            f'max-width:75%; margin-left:auto; text-align:right;">'
             f'{img_html}'
-            f'<span style="color:#e8e8f0; line-height:1.6;">{rendered}</span>'
-            f'<div style="color:#5a5a70; font-size:11px; margin-top:8px; '
-            f'padding-top:6px; border-top:1px solid rgba({pr},0.1);">'
+            f'<span style="color:#ffffff; line-height:1.55; font-size:14px;">{rendered}</span>'
+            f'<div style="margin-top:6px; opacity:0.5; font-size:10px; color:#fff;">'
             f'{edit_link} &middot; {copy_link} &middot; {delete_link} &middot; {time_str}</div>'
             f'</div>'
         )
     else:
         if streaming:
             rendered = html.escape(content).replace("\n", "<br>")
-            rendered += f'<span style="color:{p}; font-weight:bold;">|</span>'
-            ki_label = (
-                f'<span style="color:{ac}; font-weight:600; font-size:12px;">KI</span>'
-                f'<span style="color:{p}; font-size:11px; margin-left:6px;">schreibt...</span>'
-            )
-            action_links = f'<span style="color:#5a5a70; font-size:11px;">{time_str}</span>'
+            rendered += f'<span style="color:{p}; font-weight:bold; animation:blink 1s infinite;">|</span>'
+            action_links = f'<span style="color:#48484a; font-size:10px;">{time_str}</span>'
         else:
             rendered = markdown_to_html(content, msg_index=msg_index)
             rating_badge = ""
             if rating == 1:
-                rating_badge = ' <span style="color:#34d399; font-size:11px;">+</span>'
+                rating_badge = ' <span style="color:#30d158; font-size:10px;">&#9650;</span>'
             elif rating == -1:
-                rating_badge = ' <span style="color:#f87171; font-size:11px;">-</span>'
-            ki_label = f'<span style="color:{ac}; font-weight:600; font-size:12px;">KI</span>{rating_badge}'
-            link_style = 'color:#5a5a70; font-size:11px; text-decoration:none;'
-            copy_link = f'<a href="action:copy:{msg_index}" style="{link_style}">kopieren</a>'
-            regen_link = f'<a href="action:regenmodel:{msg_index}" style="{link_style}">anderes Modell</a>'
-            rate_link = f'<a href="action:rate:{msg_index}" style="{link_style}">bewerten</a>'
-            delete_link = f'<a href="action:delete:{msg_index}" style="{link_style}">entfernen</a>'
-            action_links = f'{copy_link} &middot; {regen_link} &middot; {rate_link} &middot; {delete_link} &middot; {time_str}'
+                rating_badge = ' <span style="color:#ff453a; font-size:10px;">&#9660;</span>'
+            link_style = 'color:#48484a; font-size:11px; text-decoration:none;'
+            copy_link = f'<a href="action:copy:{msg_index}" style="{link_style}">Kopieren</a>'
+            regen_link = f'<a href="action:regenmodel:{msg_index}" style="{link_style}">Anderes Modell</a>'
+            rate_link = f'<a href="action:rate:{msg_index}" style="{link_style}">Bewerten</a>'
+            delete_link = f'<a href="action:delete:{msg_index}" style="{link_style}">Entfernen</a>'
+            action_links = f'{copy_link} &middot; {regen_link} &middot; {rate_link} &middot; {delete_link} &middot; {time_str}{rating_badge}'
         return (
-            f'<div style="margin:10px 0; padding:14px 18px; '
-            f'background: rgba({ar},0.04); '
-            f'border:1px solid rgba({ar},0.1); '
-            f'border-radius:16px 16px 16px 4px; '
-            f'max-width:78%;">'
-            f'<div style="margin-bottom:6px;">{ki_label}</div>'
-            f'<span style="color:#e8e8f0; line-height:1.6;">{rendered}</span>'
-            f'<div style="color:#5a5a70; font-size:11px; margin-top:8px; '
-            f'padding-top:6px; border-top:1px solid rgba({ar},0.08);">{action_links}</div>'
+            f'<div style="margin:4px 0; padding:12px 16px; '
+            f'background:#1c1c1e; '
+            f'border-radius:18px 18px 18px 4px; '
+            f'max-width:75%;">'
+            f'<span style="color:#f5f5f7; line-height:1.55; font-size:14px;">{rendered}</span>'
+            f'<div style="margin-top:6px; font-size:10px; color:#48484a;">{action_links}</div>'
             f'</div>'
         )
 
 
 WELCOME_HTML = """
-<div style="text-align:center; padding:80px 30px;">
-    <div style="margin-bottom:24px;">
-        <span style="font-size:48px; display:block; margin-bottom:8px; opacity:0.9;">&#9670;</span>
+<div style="text-align:center; padding:100px 40px; font-family:-apple-system,'SF Pro Display','Helvetica Neue',Arial,sans-serif;">
+    <div style="margin-bottom:32px;">
+        <div style="width:64px; height:64px; border-radius:16px; background:rgba(10,132,255,0.12);
+             display:inline-block; line-height:64px; font-size:28px;">&#9679;</div>
     </div>
-    <h1 style="color:#a78bfa; font-size:28px; font-weight:700; margin:0; letter-spacing:0.5px;">
-        Unzensierter KI Chat
+    <h1 style="color:#f5f5f7; font-size:32px; font-weight:700; margin:0; letter-spacing:-0.5px;">
+        KI Chat
     </h1>
-    <p style="color:#6b6b80; font-size:14px; margin-top:12px; line-height:1.8;">
-        Lokale KI ohne Einschr&auml;nkungen via Ollama<br>
-        <span style="color:#34d399; font-size:13px;">Alles l&auml;uft lokal auf deinem PC &mdash; kein Internet n&ouml;tig</span>
+    <p style="color:#86868b; font-size:15px; margin-top:8px; line-height:1.6; font-weight:400;">
+        Lokal. Privat. Ohne Einschr&auml;nkungen.
     </p>
-    <div style="margin-top:40px; padding:20px 24px; background:rgba(124,58,237,0.06);
-         border:1px solid rgba(124,58,237,0.12); border-radius:12px; display:inline-block; text-align:left;">
-        <p style="color:#9898b0; font-size:12px; margin:0 0 10px 0; font-weight:600; letter-spacing:1px; text-transform:uppercase;">
-            Shortcuts</p>
-        <p style="color:#6b6b80; font-size:12px; margin:0; line-height:2;">
-            <span style="color:#a78bfa;">Ctrl+N</span> Neuer Chat &nbsp;&nbsp;
-            <span style="color:#a78bfa;">Escape</span> Stop &nbsp;&nbsp;
-            <span style="color:#a78bfa;">Ctrl+F</span> Suchen<br>
-            <span style="color:#a78bfa;">Ctrl+E</span> Export &nbsp;&nbsp;
-            <span style="color:#a78bfa;">Ctrl+D</span> Duplizieren &nbsp;&nbsp;
-            <span style="color:#a78bfa;">Ctrl+I</span> Import<br>
-            <span style="color:#a78bfa;">Ctrl+L</span> Leeren &nbsp;&nbsp;
-            <span style="color:#a78bfa;">Ctrl+/-</span> Zoom &nbsp;&nbsp;
-            <span style="color:#a78bfa;">Drag&amp;Drop</span> Dateien
-        </p>
+    <div style="margin-top:48px; max-width:360px; display:inline-block; text-align:left;">
+        <div style="padding:16px 20px; background:#1c1c1e; border-radius:14px; margin-bottom:8px;">
+            <span style="color:#86868b; font-size:11px; font-weight:600; letter-spacing:0.5px; text-transform:uppercase;">
+                Schnellstart</span>
+            <p style="color:#f5f5f7; font-size:13px; margin:8px 0 0 0; line-height:1.8;">
+                Schreibe eine Nachricht oder nutze<br>
+                <span style="color:#0a84ff;">Ctrl+N</span> f&uuml;r einen neuen Chat
+            </p>
+        </div>
+        <div style="padding:16px 20px; background:#1c1c1e; border-radius:14px;">
+            <span style="color:#86868b; font-size:11px; font-weight:600; letter-spacing:0.5px; text-transform:uppercase;">
+                Shortcuts</span>
+            <table style="margin-top:8px; width:100%;">
+                <tr><td style="color:#0a84ff; font-size:12px; padding:2px 0; width:80px;">Ctrl+F</td>
+                    <td style="color:#86868b; font-size:12px;">Suchen</td>
+                    <td style="color:#0a84ff; font-size:12px; width:80px;">Ctrl+?</td>
+                    <td style="color:#86868b; font-size:12px;">Alle Shortcuts</td></tr>
+                <tr><td style="color:#0a84ff; font-size:12px; padding:2px 0;">F11</td>
+                    <td style="color:#86868b; font-size:12px;">Vollbild</td>
+                    <td style="color:#0a84ff; font-size:12px;">Esc</td>
+                    <td style="color:#86868b; font-size:12px;">Stoppen</td></tr>
+            </table>
+        </div>
     </div>
-    <p style="color:#4a4a5a; font-size:12px; margin-top:30px;">
-        Schreibe eine Nachricht um zu starten...
-    </p>
 </div>
 """
 
@@ -780,10 +767,10 @@ class ModelPullDialog(QDialog):
         self.status_label.setText(message)
         if success:
             self.progress.setValue(100)
-            self.status_label.setStyleSheet("color: #34d399;")
+            self.status_label.setStyleSheet("color: #30d158;")
             self._refresh_installed()
         else:
-            self.status_label.setStyleSheet("color: #f87171;")
+            self.status_label.setStyleSheet("color: #ff453a;")
 
     def _refresh_installed(self):
         self.installed_combo.clear()
@@ -811,11 +798,11 @@ class ModelPullDialog(QDialog):
             return
         if self.client.delete_model(model):
             self.status_label.setText(f"{model} gelöscht!")
-            self.status_label.setStyleSheet("color: #34d399;")
+            self.status_label.setStyleSheet("color: #30d158;")
             self._refresh_installed()
         else:
             self.status_label.setText(f"Konnte {model} nicht löschen!")
-            self.status_label.setStyleSheet("color: #f87171;")
+            self.status_label.setStyleSheet("color: #ff453a;")
 
 
 class OllamaStartWorker(QThread):
@@ -892,7 +879,7 @@ class SetupWizard(QDialog):
 
         # --- Step 1: Ollama installation ---
         step1 = QLabel("Schritt 1: Ollama installieren")
-        step1.setStyleSheet("color: #a78bfa; font-weight: 600; font-size: 15px;")
+        step1.setStyleSheet("color: #f5f5f7; font-weight: 600; font-size: 15px;")
         layout.addWidget(step1)
 
         self.ollama_status = QLabel("Prüfe...")
@@ -905,7 +892,7 @@ class SetupWizard(QDialog):
 
         # --- Step 2: Start server ---
         step2 = QLabel("Schritt 2: Ollama Server starten")
-        step2.setStyleSheet("color: #a78bfa; font-weight: 600; font-size: 15px;")
+        step2.setStyleSheet("color: #f5f5f7; font-weight: 600; font-size: 15px;")
         layout.addWidget(step2)
 
         self.server_status = QLabel("Warte auf Schritt 1...")
@@ -919,7 +906,7 @@ class SetupWizard(QDialog):
 
         # --- Step 3: Download model ---
         step3 = QLabel("Schritt 3: KI-Modell herunterladen")
-        step3.setStyleSheet("color: #a78bfa; font-weight: 600; font-size: 15px;")
+        step3.setStyleSheet("color: #f5f5f7; font-weight: 600; font-size: 15px;")
         layout.addWidget(step3)
 
         self.model_status = QLabel("Warte auf Schritt 2...")
@@ -959,17 +946,17 @@ class SetupWizard(QDialog):
     def _check_initial_state(self):
         if self.manager.is_installed():
             self.ollama_status.setText("Ollama ist installiert!")
-            self.ollama_status.setStyleSheet("color: #34d399;")
+            self.ollama_status.setStyleSheet("color: #30d158;")
             self._check_server()
         else:
             self.ollama_status.setText("Ollama ist NICHT installiert.")
-            self.ollama_status.setStyleSheet("color: #f87171;")
+            self.ollama_status.setStyleSheet("color: #ff453a;")
             self.install_btn.setVisible(True)
 
     def _install_ollama(self):
         self.install_btn.setEnabled(False)
         self.ollama_status.setText("Installiere Ollama...")
-        self.ollama_status.setStyleSheet("color: #fbbf24;")
+        self.ollama_status.setStyleSheet("color: #ff9f0a;")
         self._install_worker = OllamaInstallWorker(self.manager)
         self._install_worker.status_update.connect(
             lambda s: self.ollama_status.setText(s)
@@ -981,27 +968,27 @@ class SetupWizard(QDialog):
         self.install_btn.setEnabled(True)
         if success:
             self.ollama_status.setText(msg)
-            self.ollama_status.setStyleSheet("color: #34d399;")
+            self.ollama_status.setStyleSheet("color: #30d158;")
             self.install_btn.setVisible(False)
             self._check_server()
         else:
             self.ollama_status.setText(msg)
-            self.ollama_status.setStyleSheet("color: #f87171;")
+            self.ollama_status.setStyleSheet("color: #ff453a;")
 
     def _check_server(self):
         if self.manager.is_server_running():
             self.server_status.setText("Ollama Server läuft!")
-            self.server_status.setStyleSheet("color: #34d399;")
+            self.server_status.setStyleSheet("color: #30d158;")
             self._check_models()
         else:
             self.server_status.setText("Server ist nicht gestartet.")
-            self.server_status.setStyleSheet("color: #fbbf24;")
+            self.server_status.setStyleSheet("color: #ff9f0a;")
             self.start_btn.setVisible(True)
 
     def _start_server(self):
         self.start_btn.setEnabled(False)
         self.server_status.setText("Starte Ollama Server...")
-        self.server_status.setStyleSheet("color: #fbbf24;")
+        self.server_status.setStyleSheet("color: #ff9f0a;")
         self._start_worker = OllamaStartWorker(self.manager)
         self._start_worker.status_update.connect(
             lambda s: self.server_status.setText(s)
@@ -1013,12 +1000,12 @@ class SetupWizard(QDialog):
         self.start_btn.setEnabled(True)
         if success:
             self.server_status.setText(msg)
-            self.server_status.setStyleSheet("color: #34d399;")
+            self.server_status.setStyleSheet("color: #30d158;")
             self.start_btn.setVisible(False)
             self._check_models()
         else:
             self.server_status.setText(msg)
-            self.server_status.setStyleSheet("color: #f87171;")
+            self.server_status.setStyleSheet("color: #ff453a;")
 
     def _check_models(self):
         models = self.client.list_models()
@@ -1026,13 +1013,13 @@ class SetupWizard(QDialog):
             self.model_status.setText(
                 f"{len(models)} Modell{'e' if len(models) != 1 else ''} verfügbar: {', '.join(models[:3])}"
             )
-            self.model_status.setStyleSheet("color: #34d399;")
+            self.model_status.setStyleSheet("color: #30d158;")
             self.done_btn.setVisible(True)
             self.download_btn.setVisible(True)
             self.download_btn.setText("Weiteres Modell laden")
         else:
             self.model_status.setText("Kein Modell installiert. Bitte eines herunterladen.")
-            self.model_status.setStyleSheet("color: #fbbf24;")
+            self.model_status.setStyleSheet("color: #ff9f0a;")
             self.download_btn.setVisible(True)
 
     def _download_model(self):
@@ -1043,7 +1030,7 @@ class SetupWizard(QDialog):
         self.progress.setVisible(True)
         self.progress.setValue(0)
         self.model_status.setText(f"Lade {model} herunter...")
-        self.model_status.setStyleSheet("color: #fbbf24;")
+        self.model_status.setStyleSheet("color: #ff9f0a;")
 
         self._pull_worker = ModelPullWorker(self.client, model)
         self._pull_worker.progress_update.connect(self._on_pull_progress)
@@ -1058,12 +1045,12 @@ class SetupWizard(QDialog):
         self.download_btn.setEnabled(True)
         if success:
             self.model_status.setText(msg)
-            self.model_status.setStyleSheet("color: #34d399;")
+            self.model_status.setStyleSheet("color: #30d158;")
             self.progress.setValue(100)
             self.done_btn.setVisible(True)
         else:
             self.model_status.setText(msg)
-            self.model_status.setStyleSheet("color: #f87171;")
+            self.model_status.setStyleSheet("color: #ff453a;")
 
 
 class SettingsDialog(QDialog):
@@ -1291,7 +1278,7 @@ class ModelInfoDialog(QDialog):
         self._layout.setSpacing(10)
 
         title = QLabel(model_name)
-        title.setStyleSheet("color: #a78bfa; font-size: 18px; font-weight: 700;")
+        title.setStyleSheet("color: #f5f5f7; font-size: 18px; font-weight: 700; letter-spacing: -0.3px;")
         self._layout.addWidget(title)
 
         self._loading = QLabel("Lade Modell-Informationen...")
@@ -1330,8 +1317,8 @@ class ModelInfoDialog(QDialog):
             for label, value in fields:
                 if value:
                     html_parts.append(
-                        f'<tr><td style="color:#a78bfa; padding:6px 12px; font-weight:600;">{label}</td>'
-                        f'<td style="color:#e8e8f0; padding:6px 12px;">{value}</td></tr>'
+                        f'<tr><td style="color:#0a84ff; padding:6px 12px; font-weight:600;">{label}</td>'
+                        f'<td style="color:#f5f5f7; padding:6px 12px;">{value}</td></tr>'
                     )
             html_parts.append("</table>")
 
@@ -1339,9 +1326,9 @@ class ModelInfoDialog(QDialog):
         if info.get("template"):
             html_parts.append(
                 f'<div style="margin-top:12px;">'
-                f'<span style="color:#a78bfa; font-weight:600;">Template:</span>'
-                f'<pre style="background:#0a0a14; padding:10px; border-radius:8px; '
-                f'color:#c9d1d9; font-size:12px; white-space:pre-wrap; margin-top:4px;">'
+                f'<span style="color:#0a84ff; font-weight:600;">Template:</span>'
+                f'<pre style="background:#0d0d0d; padding:10px; border-radius:8px; '
+                f'color:#98989d; font-size:12px; white-space:pre-wrap; margin-top:4px;">'
                 f'{html_escape(info["template"][:500])}</pre></div>'
             )
 
@@ -1349,9 +1336,9 @@ class ModelInfoDialog(QDialog):
         if info.get("parameters"):
             html_parts.append(
                 f'<div style="margin-top:12px;">'
-                f'<span style="color:#a78bfa; font-weight:600;">Parameter:</span>'
-                f'<pre style="background:#0a0a14; padding:10px; border-radius:8px; '
-                f'color:#c9d1d9; font-size:12px; white-space:pre-wrap; margin-top:4px;">'
+                f'<span style="color:#0a84ff; font-weight:600;">Parameter:</span>'
+                f'<pre style="background:#0d0d0d; padding:10px; border-radius:8px; '
+                f'color:#98989d; font-size:12px; white-space:pre-wrap; margin-top:4px;">'
                 f'{html_escape(info["parameters"][:500])}</pre></div>'
             )
 
@@ -1359,14 +1346,14 @@ class ModelInfoDialog(QDialog):
         if info.get("license"):
             html_parts.append(
                 f'<div style="margin-top:12px;">'
-                f'<span style="color:#a78bfa; font-weight:600;">Lizenz:</span>'
-                f'<pre style="background:#0a0a14; padding:10px; border-radius:8px; '
-                f'color:#9898b0; font-size:11px; white-space:pre-wrap; margin-top:4px;">'
+                f'<span style="color:#0a84ff; font-weight:600;">Lizenz:</span>'
+                f'<pre style="background:#0d0d0d; padding:10px; border-radius:8px; '
+                f'color:#86868b; font-size:11px; white-space:pre-wrap; margin-top:4px;">'
                 f'{html_escape(info["license"][:300])}</pre></div>'
             )
 
         details.setHtml(
-            f'<div style="font-family: Segoe UI, Arial, sans-serif; padding:8px;">{"".join(html_parts)}</div>'
+            f'<div style="font-family: -apple-system, BlinkMacSystemFont, SF Pro Text, Helvetica Neue, sans-serif; padding:8px;">{"".join(html_parts)}</div>'
         )
         # Insert before the close button
         self._layout.insertWidget(self._layout.count() - 1, details, 1)
@@ -1385,7 +1372,7 @@ class ShortcutsDialog(QDialog):
         self.setMinimumSize(420, 400)
         layout = QVBoxLayout(self)
         title = QLabel("Tastenkürzel")
-        title.setStyleSheet("color: #a78bfa; font-size: 18px; font-weight: 700;")
+        title.setStyleSheet("color: #f5f5f7; font-size: 18px; font-weight: 700; letter-spacing: -0.3px;")
         layout.addWidget(title)
 
         browser = QTextBrowser()
@@ -1418,7 +1405,7 @@ class ShortcutsDialog(QDialog):
             rows += (
                 f'<tr><td style="padding:5px 12px; color:{pl}; font-weight:600; '
                 f'font-family:monospace; white-space:nowrap;">{key}</td>'
-                f'<td style="padding:5px 12px; color:#e8e8f0;">{desc}</td></tr>'
+                f'<td style="padding:5px 12px; color:#f5f5f7;">{desc}</td></tr>'
             )
         browser.setHtml(
             f'<table style="width:100%;">{rows}</table>'
@@ -1506,7 +1493,7 @@ class ChatStatsDialog(QDialog):
         layout = QVBoxLayout(self)
 
         title = QLabel("Chat-Statistiken")
-        title.setStyleSheet("color: #a78bfa; font-size: 18px; font-weight: 700;")
+        title.setStyleSheet("color: #f5f5f7; font-size: 18px; font-weight: 700; letter-spacing: -0.3px;")
         layout.addWidget(title)
 
         total_sessions = len(sessions)
@@ -1538,7 +1525,7 @@ class ChatStatsDialog(QDialog):
         rows = ""
         for label, value in stats:
             rows += (
-                f'<tr><td style="padding:6px 12px; color:#9898b0;">{label}</td>'
+                f'<tr><td style="padding:6px 12px; color:#86868b;">{label}</td>'
                 f'<td style="padding:6px 12px; color:{pl}; font-weight:600; text-align:right;">{value}</td></tr>'
             )
         browser.setHtml(f'<table style="width:100%;">{rows}</table>')
@@ -1746,7 +1733,7 @@ class MainWindow(QMainWindow):
         if self._check_worker and self._check_worker.isRunning():
             return
         self.status_label.setText("Verbinde mit Ollama...")
-        self.status_label.setStyleSheet("color: #6b6b80;")
+        self.status_label.setStyleSheet("color: #48484a;")
         old_worker = self._check_worker
         self._check_worker = OllamaCheckWorker(self.client)
         self._check_worker.result.connect(self._on_ollama_check)
@@ -1764,7 +1751,7 @@ class MainWindow(QMainWindow):
                 self._start_worker and self._start_worker.isRunning()
             ):
                 self.status_label.setText("Ollama nicht erreichbar - starte automatisch...")
-                self.status_label.setStyleSheet("color: #fbbf24;")
+                self.status_label.setStyleSheet("color: #ff9f0a;")
                 self._start_worker = OllamaStartWorker(self.ollama_manager)
                 self._start_worker.status_update.connect(
                     lambda s: self.status_label.setText(s)
@@ -1774,7 +1761,7 @@ class MainWindow(QMainWindow):
                 self._start_worker.start()
                 return
             self.status_label.setText("Ollama nicht erreichbar! Starte: ollama serve")
-            self.status_label.setStyleSheet("color: #f87171;")
+            self.status_label.setStyleSheet("color: #ff453a;")
             if not self._reconnect_timer.isActive():
                 self._reconnect_timer.start()
         else:
@@ -1784,18 +1771,18 @@ class MainWindow(QMainWindow):
             self.status_label.setText(
                 f"Ollama verbunden | {model_count} Modell{'e' if model_count != 1 else ''} verfügbar"
             )
-            self.status_label.setStyleSheet("color: #34d399;")
+            self.status_label.setStyleSheet("color: #30d158;")
         self._update_model_label()
 
     def _on_auto_start_done(self, success: bool, msg: str):
         if success:
             self.status_label.setText("Ollama automatisch gestartet!")
-            self.status_label.setStyleSheet("color: #34d399;")
+            self.status_label.setStyleSheet("color: #30d158;")
             # Re-check connection now
             self.check_ollama_async()
         else:
             self.status_label.setText("Ollama konnte nicht gestartet werden")
-            self.status_label.setStyleSheet("color: #f87171;")
+            self.status_label.setStyleSheet("color: #ff453a;")
             if not self._reconnect_timer.isActive():
                 self._reconnect_timer.start()
 
@@ -1842,7 +1829,7 @@ class MainWindow(QMainWindow):
 
         # --- Sidebar ---
         sidebar = QWidget()
-        sidebar.setStyleSheet("background-color: #0a0a14;")
+        sidebar.setStyleSheet("background-color: #1c1c1e;")
         sidebar.setMaximumWidth(280)
         sidebar.setMinimumWidth(220)
         sidebar_layout = QVBoxLayout(sidebar)
@@ -1956,7 +1943,7 @@ class MainWindow(QMainWindow):
         # In-chat search bar (hidden by default)
         self._chat_search_bar = QWidget()
         self._chat_search_bar.setVisible(False)
-        self._chat_search_bar.setStyleSheet("background-color: #12121f; border-bottom: 1px solid rgba(124,58,237,0.15);")
+        self._chat_search_bar.setStyleSheet("background-color: #1c1c1e; border-bottom: 1px solid rgba(255,255,255,0.06);")
         search_bar_layout = QHBoxLayout(self._chat_search_bar)
         search_bar_layout.setContentsMargins(8, 4, 8, 4)
         search_bar_layout.setSpacing(6)
@@ -1983,7 +1970,7 @@ class MainWindow(QMainWindow):
 
         # Action buttons
         action_bar = QWidget()
-        action_bar.setStyleSheet("background-color: #0f0f1a; border-top: 1px solid rgba(124,58,237,0.08);")
+        action_bar.setStyleSheet("background-color: #000000; border-top: 1px solid rgba(255,255,255,0.06);")
         action_layout = QHBoxLayout(action_bar)
         action_layout.setContentsMargins(16, 4, 16, 4)
         action_layout.setSpacing(8)
@@ -2024,7 +2011,7 @@ class MainWindow(QMainWindow):
         # Input
         input_container = QWidget()
         input_container.setStyleSheet(
-            "background-color: #0f0f1a; border-top: 1px solid rgba(124,58,237,0.1);"
+            "background-color: #000000; border-top: 1px solid rgba(255,255,255,0.06);"
         )
         input_layout = QHBoxLayout(input_container)
         input_layout.setContentsMargins(16, 12, 16, 12)
@@ -2060,13 +2047,13 @@ class MainWindow(QMainWindow):
         self.attach_img_btn.clicked.connect(self._attach_image)
         img_row.addWidget(self.attach_img_btn)
         self.image_indicator = QLabel("")
-        self.image_indicator.setStyleSheet("color: #a78bfa; font-size: 11px;")
+        self.image_indicator.setStyleSheet("color: #0a84ff; font-size: 11px;")
         self.image_indicator.setVisible(False)
         img_row.addWidget(self.image_indicator)
         btn_col.addLayout(img_row)
 
         self.input_counter_label = QLabel("")
-        self.input_counter_label.setStyleSheet("color: #4a4a5a; font-size: 11px;")
+        self.input_counter_label.setStyleSheet("color: #48484a; font-size: 11px;")
         self.input_counter_label.setAlignment(Qt.AlignmentFlag.AlignRight)
         btn_col.addWidget(self.input_counter_label)
 
@@ -2080,12 +2067,12 @@ class MainWindow(QMainWindow):
         bottom_layout.setSpacing(8)
 
         self.status_label = QLabel("Verbinde mit Ollama...")
-        self.status_label.setStyleSheet("color: #6b6b80;")
+        self.status_label.setStyleSheet("color: #48484a;")
         bottom_layout.addWidget(self.status_label, 1)
 
         self.model_label = QPushButton("")
         self.model_label.setObjectName("small")
-        self.model_label.setStyleSheet("color: #a78bfa; font-size: 12px; font-weight: 600; text-decoration: underline;")
+        self.model_label.setStyleSheet("color: #0a84ff; font-size: 12px; font-weight: 500;")
         self.model_label.setCursor(Qt.CursorShape.PointingHandCursor)
         self.model_label.clicked.connect(self._show_model_info)
         bottom_layout.addWidget(self.model_label)
@@ -2152,7 +2139,7 @@ class MainWindow(QMainWindow):
         self._pending_images.append(b64)
         count = len(self._pending_images)
         self.status_label.setText(f"{count} Bild(er) angehängt")
-        self.status_label.setStyleSheet("color: #a78bfa;")
+        self.status_label.setStyleSheet("color: #0a84ff;")
         self._update_image_label()
 
     def _add_image_from_path(self, path: Path):
@@ -2163,7 +2150,7 @@ class MainWindow(QMainWindow):
             self._pending_images.append(b64)
             self._update_image_label()
             self.status_label.setText(f"{len(self._pending_images)} Bild(er) angehängt")
-            self.status_label.setStyleSheet("color: #a78bfa;")
+            self.status_label.setStyleSheet("color: #0a84ff;")
         except Exception:
             pass
 
@@ -2211,19 +2198,19 @@ class MainWindow(QMainWindow):
         self._font_zoom = min(200, self._font_zoom + 10)
         self._apply_zoom()
         self.status_label.setText(f"Zoom: {self._font_zoom}%")
-        self.status_label.setStyleSheet("color: #34d399;")
+        self.status_label.setStyleSheet("color: #30d158;")
 
     def _zoom_out(self):
         self._font_zoom = max(50, self._font_zoom - 10)
         self._apply_zoom()
         self.status_label.setText(f"Zoom: {self._font_zoom}%")
-        self.status_label.setStyleSheet("color: #34d399;")
+        self.status_label.setStyleSheet("color: #30d158;")
 
     def _zoom_reset(self):
         self._font_zoom = 100
         self._apply_zoom()
         self.status_label.setText("Zoom: 100%")
-        self.status_label.setStyleSheet("color: #34d399;")
+        self.status_label.setStyleSheet("color: #30d158;")
 
     # --- In-chat search ---
 
@@ -2255,7 +2242,7 @@ class MainWindow(QMainWindow):
             if not QSystemTrayIcon.isSystemTrayAvailable():
                 return
             pixmap = QPixmap(16, 16)
-            pixmap.fill(QColor("#7c3aed"))
+            pixmap.fill(QColor("#0a84ff"))
             self._tray_icon = QSystemTrayIcon(QIcon(pixmap), self)
             tray_menu = QMenu()
             show_action = tray_menu.addAction("Anzeigen")
@@ -2320,7 +2307,7 @@ class MainWindow(QMainWindow):
                 parts.append(f"{skipped} übersprungen")
             if parts:
                 self.status_label.setText(" | ".join(parts))
-                self.status_label.setStyleSheet("color: #34d399;")
+                self.status_label.setStyleSheet("color: #30d158;")
             event.acceptProposedAction()
         else:
             super().dropEvent(event)
@@ -2371,7 +2358,7 @@ class MainWindow(QMainWindow):
             if clipboard:
                 clipboard.setText(msg.content)
             self.status_label.setText("In Zwischenablage kopiert!")
-            self.status_label.setStyleSheet("color: #34d399;")
+            self.status_label.setStyleSheet("color: #30d158;")
             QTimer.singleShot(2000, lambda: self.status_label.setText("Bereit"))
         elif action == "copycode":
             try:
@@ -2384,7 +2371,7 @@ class MainWindow(QMainWindow):
                 if clipboard:
                     clipboard.setText(blocks[block_idx])
                 self.status_label.setText("Code in Zwischenablage kopiert!")
-                self.status_label.setStyleSheet("color: #34d399;")
+                self.status_label.setStyleSheet("color: #30d158;")
                 QTimer.singleShot(2000, lambda: self.status_label.setText("Bereit"))
         elif action == "savecode":
             try:
@@ -2407,10 +2394,10 @@ class MainWindow(QMainWindow):
                     try:
                         Path(path).write_text(code, encoding="utf-8")
                         self.status_label.setText(f"Code gespeichert: {Path(path).name}")
-                        self.status_label.setStyleSheet("color: #34d399;")
+                        self.status_label.setStyleSheet("color: #30d158;")
                     except Exception as e:
                         self.status_label.setText(f"Fehler: {e}")
-                        self.status_label.setStyleSheet("color: #f87171;")
+                        self.status_label.setStyleSheet("color: #ff453a;")
         elif action == "delete":
             if self.stream_worker and self.stream_worker.isRunning():
                 return
@@ -2449,7 +2436,7 @@ class MainWindow(QMainWindow):
             self._cached_history_html = ""
             self.render_chat()
             self.status_label.setText("Bewertung gespeichert")
-            self.status_label.setStyleSheet("color: #34d399;")
+            self.status_label.setStyleSheet("color: #30d158;")
         elif action == "regenmodel":
             if msg.role != "assistant":
                 return
@@ -2458,7 +2445,7 @@ class MainWindow(QMainWindow):
             models = self.client.list_models()
             if not models:
                 self.status_label.setText("Keine Modelle verfügbar!")
-                self.status_label.setStyleSheet("color: #f87171;")
+                self.status_label.setStyleSheet("color: #ff453a;")
                 return
             model, ok = QInputDialog.getItem(
                 self, "Modell wählen", "Mit welchem Modell neu generieren?",
@@ -2552,7 +2539,7 @@ class MainWindow(QMainWindow):
                         self.session_list.blockSignals(False)
                         break
                 self.status_label.setText("Kann während Streaming nicht wechseln!")
-                self.status_label.setStyleSheet("color: #fbbf24;")
+                self.status_label.setStyleSheet("color: #ff9f0a;")
                 return
             self.current_session = self.sessions[row]
             self._cached_history_html = ""
@@ -2570,11 +2557,12 @@ class MainWindow(QMainWindow):
             return
         menu = QMenu(self)
         menu.setStyleSheet(
-            "QMenu { background-color: #1a1a2e; color: #e8e8f0; border: 1px solid rgba(124,58,237,0.25); "
-            "border-radius: 8px; padding: 6px; }"
-            "QMenu::item { padding: 8px 20px; border-radius: 4px; }"
-            "QMenu::item:selected { background-color: rgba(124,58,237,0.25); }"
-            "QMenu::separator { height: 1px; background: rgba(124,58,237,0.15); margin: 4px 8px; }"
+            "QMenu { background-color: #2c2c2e; color: #f5f5f7; "
+            "border: 1px solid rgba(255,255,255,0.1); "
+            "border-radius: 10px; padding: 4px; }"
+            "QMenu::item { padding: 8px 16px; border-radius: 6px; font-size: 13px; }"
+            "QMenu::item:selected { background-color: #0a84ff; color: white; }"
+            "QMenu::separator { height: 1px; background: rgba(255,255,255,0.08); margin: 4px 8px; }"
         )
         s = self.sessions[row]
         pin_text = "Entpinnen" if s.pinned else "Anpinnen"
@@ -2678,7 +2666,7 @@ class MainWindow(QMainWindow):
             self.session_list.addItem(QListWidgetItem(self._session_label(session)))
             self.session_list.setCurrentRow(len(self.sessions) - 1)
             self.status_label.setText(f"Chat \"{session.name}\" importiert!")
-            self.status_label.setStyleSheet("color: #34d399;")
+            self.status_label.setStyleSheet("color: #30d158;")
         except Exception as e:
             QMessageBox.warning(self, "Import Fehler", f"Konnte Chat nicht importieren:\n{e}")
 
@@ -2825,40 +2813,34 @@ class MainWindow(QMainWindow):
     # --- Chat rendering ---
 
     def _build_chat_header(self) -> str:
-        """Build HTML header showing session info: date, model, system prompt."""
+        """Build HTML header showing session info — Apple-style minimal."""
         if not self.current_session:
             return ""
         t = _tc()
-        pr = t["primary_rgb"]
-        pl = t["primary_light"]
+        p = t["primary"]
         s = self.current_session
         date_str = s.created_at.strftime("%d.%m.%Y %H:%M")
-        prompt_preview = s.system_prompt[:80] + "..." if len(s.system_prompt) > 80 else s.system_prompt
-        prompt_escaped = html.escape(prompt_preview)
         return (
-            f'<div style="border-bottom:1px solid rgba({pr},0.12); padding:10px 0 14px 0; margin-bottom:14px;">'
-            f'<span style="color:{pl}; font-weight:600; font-size:15px;">{html.escape(s.name)}</span>'
-            f'<span style="color:#5a5a70; font-size:12px; margin-left:10px;">'
-            f'{date_str} &middot; {html.escape(s.model)}</span><br>'
-            f'<span style="color:#4a4a5a; font-size:11px; font-style:italic;">{prompt_escaped}</span>'
+            f'<div style="text-align:center; padding:8px 0 20px 0; margin-bottom:8px;">'
+            f'<div style="color:#f5f5f7; font-weight:600; font-size:15px; letter-spacing:-0.2px;">{html.escape(s.name)}</div>'
+            f'<div style="color:#48484a; font-size:11px; margin-top:4px;">'
+            f'{date_str} &middot; {html.escape(s.model)}</div>'
             f'</div>'
         )
 
     def _build_history_html(self) -> str:
         if not self.current_session or not self.current_session.messages:
             return ""
-        t = _tc()
-        pr = t["primary_rgb"]
         parts = []
         last_date = None
         for idx, msg in enumerate(self.current_session.messages):
             msg_date = msg.timestamp.date()
             if msg_date != last_date:
-                date_str = msg.timestamp.strftime("%d.%m.%Y")
+                date_str = msg.timestamp.strftime("%d. %B %Y")
                 parts.append(
-                    f'<div style="text-align:center; margin:16px 0 10px 0;">'
-                    f'<span style="background-color:rgba({pr},0.1); color:#7c7c95; font-size:11px; '
-                    f'padding:4px 14px; border-radius:12px; border:1px solid rgba({pr},0.1);">'
+                    f'<div style="text-align:center; margin:20px 0 12px 0;">'
+                    f'<span style="color:#48484a; font-size:11px; font-weight:500; '
+                    f'letter-spacing:0.3px;">'
                     f'{date_str}</span></div>'
                 )
                 last_date = msg_date
@@ -2874,7 +2856,8 @@ class MainWindow(QMainWindow):
         self._cached_history_html = self._build_history_html()
         header = self._build_chat_header()
         self.chat_display.setHtml(
-            '<div style="padding: 18px 20px; font-family: Segoe UI, SF Pro Display, Arial, sans-serif;">'
+            '<div style="padding: 16px 24px; max-width:720px; margin:0 auto; '
+            'font-family:-apple-system,SF Pro Display,Helvetica Neue,Arial,sans-serif;">'
             + header
             + self._cached_history_html
             + '</div>'
@@ -2893,7 +2876,8 @@ class MainWindow(QMainWindow):
         time_str = datetime.now().strftime("%H:%M")
         streaming_html = _build_message_html("assistant", streaming_text, time_str, streaming=True)
         self.chat_display.setHtml(
-            '<div style="padding: 18px 20px; font-family: Segoe UI, SF Pro Display, Arial, sans-serif;">'
+            '<div style="padding: 16px 24px; max-width:720px; margin:0 auto; '
+            'font-family:-apple-system,SF Pro Display,Helvetica Neue,Arial,sans-serif;">'
             + self._cached_header_html
             + self._cached_history_html
             + streaming_html
@@ -2916,7 +2900,7 @@ class MainWindow(QMainWindow):
             if elapsed > 0.5:
                 tps = token_count / elapsed
                 self.status_label.setText(f"KI schreibt... | {token_count} tokens | {tps:.0f} t/s")
-                self.status_label.setStyleSheet("color: #f87171;")
+                self.status_label.setStyleSheet("color: #ff453a;")
 
     def _update_counters(self):
         """Update token, word, and character counters."""
@@ -2926,11 +2910,11 @@ class MainWindow(QMainWindow):
             total_words = sum(len(m.content.split()) for m in self.current_session.messages)
             self.stats_label.setText(f"~{tokens:,} Tokens | {total_words:,} Wörter | {total_chars:,} Zeichen")
             if tokens > CONTEXT_HARD_LIMIT:
-                self.stats_label.setStyleSheet("color: #f87171; font-size: 11px;")
+                self.stats_label.setStyleSheet("color: #ff453a; font-size: 11px;")
             elif tokens > CONTEXT_SOFT_LIMIT:
-                self.stats_label.setStyleSheet("color: #fbbf24; font-size: 11px;")
+                self.stats_label.setStyleSheet("color: #ff9f0a; font-size: 11px;")
             else:
-                self.stats_label.setStyleSheet("color: #5a5a70; font-size: 11px;")
+                self.stats_label.setStyleSheet("color: #48484a; font-size: 11px;")
         else:
             self.stats_label.setText("")
 
@@ -2964,7 +2948,7 @@ class MainWindow(QMainWindow):
         removed = count_before - len(self.current_session.messages)
         if removed > 0:
             self.status_label.setText(f"{removed} alte Nachricht(en) entfernt (Kontextlimit)")
-            self.status_label.setStyleSheet("color: #fbbf24;")
+            self.status_label.setStyleSheet("color: #ff9f0a;")
         self._update_counters()
 
     # --- Sending and receiving ---
@@ -2972,7 +2956,7 @@ class MainWindow(QMainWindow):
     def send_message(self):
         if not self._ollama_connected:
             self.status_label.setText("Ollama nicht verbunden! Kann nicht senden.")
-            self.status_label.setStyleSheet("color: #f87171;")
+            self.status_label.setStyleSheet("color: #ff453a;")
             return
         text = self.input_field.toPlainText().strip()
         if not text or not self.current_session:
@@ -3010,7 +2994,7 @@ class MainWindow(QMainWindow):
         self.edit_last_btn.setVisible(False)
         self.input_field.setEnabled(False)
         self.status_label.setText("KI denkt nach...")
-        self.status_label.setStyleSheet("color: #f87171;")
+        self.status_label.setStyleSheet("color: #ff453a;")
 
         settings = load_settings()
         num_predict = settings.get("num_predict", 0)
@@ -3046,7 +3030,7 @@ class MainWindow(QMainWindow):
             self.status_label.setText(f"Bereit | {token_count} tokens in {elapsed:.1f}s ({tps:.0f} t/s)")
         else:
             self.status_label.setText(f"Bereit | Antwort in {elapsed:.1f}s")
-        self.status_label.setStyleSheet("color: #34d399;")
+        self.status_label.setStyleSheet("color: #30d158;")
         # Auto-generate title after first exchange
         if (
             self.current_session
@@ -3082,7 +3066,7 @@ class MainWindow(QMainWindow):
         self._update_session_list_item(row)
         self._reset_input_state()
         self.status_label.setText(f"Fehler: {error[:80]}")
-        self.status_label.setStyleSheet("color: #f87171;")
+        self.status_label.setStyleSheet("color: #ff453a;")
 
     def stop_streaming(self):
         if not self.stream_worker or not self.stream_worker.isRunning():
@@ -3103,7 +3087,7 @@ class MainWindow(QMainWindow):
         self._update_session_list_item(row)
         self._reset_input_state()
         self.status_label.setText("Gestoppt")
-        self.status_label.setStyleSheet("color: #fbbf24;")
+        self.status_label.setStyleSheet("color: #ff9f0a;")
 
     def _request_auto_title(self):
         if not self.current_session or len(self.current_session.messages) < 2:
@@ -3160,7 +3144,7 @@ class MainWindow(QMainWindow):
                 if clipboard:
                     clipboard.setText(msg.content)
                 self.status_label.setText("In Zwischenablage kopiert!")
-                self.status_label.setStyleSheet("color: #34d399;")
+                self.status_label.setStyleSheet("color: #30d158;")
                 QTimer.singleShot(2000, lambda: self.status_label.setText("Bereit"))
                 break
 
@@ -3209,7 +3193,7 @@ class MainWindow(QMainWindow):
             row = self.session_list.currentRow()
             self._update_session_list_item(row)
             self.status_label.setText(f"{len(dlg.selected_indices)} Nachricht(en) gelöscht")
-            self.status_label.setStyleSheet("color: #34d399;")
+            self.status_label.setStyleSheet("color: #30d158;")
 
     # --- Dialogs ---
 
@@ -3281,7 +3265,7 @@ class MainWindow(QMainWindow):
                 try:
                     self.current_session.export_txt(Path(path))
                     self.status_label.setText(f"Exportiert: {Path(path).name}")
-                    self.status_label.setStyleSheet("color: #34d399;")
+                    self.status_label.setStyleSheet("color: #30d158;")
                 except Exception as e:
                     QMessageBox.warning(self, "Export Fehler", f"Konnte nicht exportieren:\n{e}")
         elif fmt == "md":
@@ -3293,7 +3277,7 @@ class MainWindow(QMainWindow):
                 try:
                     self.current_session.export_md(Path(path))
                     self.status_label.setText(f"Markdown exportiert: {Path(path).name}")
-                    self.status_label.setStyleSheet("color: #34d399;")
+                    self.status_label.setStyleSheet("color: #30d158;")
                 except Exception as e:
                     QMessageBox.warning(self, "Export Fehler", f"Konnte nicht exportieren:\n{e}")
         elif fmt == "html":
@@ -3315,7 +3299,7 @@ class MainWindow(QMainWindow):
                 try:
                     self.current_session.export_json(Path(path))
                     self.status_label.setText(f"Exportiert: {Path(path).name}")
-                    self.status_label.setStyleSheet("color: #34d399;")
+                    self.status_label.setStyleSheet("color: #30d158;")
                 except Exception as e:
                     QMessageBox.warning(self, "Export Fehler", f"Konnte nicht exportieren:\n{e}")
 
@@ -3327,20 +3311,21 @@ class MainWindow(QMainWindow):
             f'<!DOCTYPE html><html><head><meta charset="utf-8">'
             f'<title>{name_escaped}</title>'
             f'<style>'
-            f'body {{ background-color: #0f0f1a; color: #e8e8f0; '
-            f'font-family: "Segoe UI", "SF Pro Display", Arial, sans-serif; padding: 20px; margin: 0; }}'
-            f'a {{ color: #818cf8; }}'
+            f'body {{ background-color: #000; color: #f5f5f7; '
+            f'font-family: -apple-system, "SF Pro Display", "Helvetica Neue", Arial, sans-serif; '
+            f'padding: 20px; margin: 0; font-size: 14px; }}'
+            f'a {{ color: #0a84ff; }}'
             f'table {{ border-collapse: collapse; margin: 8px 0; }}'
-            f'th, td {{ border: 1px solid rgba(124,58,237,0.2); padding: 8px 12px; }}'
-            f'th {{ background-color: rgba(124,58,237,0.1); color: #a78bfa; }}'
+            f'th, td {{ border-bottom: 1px solid rgba(255,255,255,0.06); padding: 8px 12px; }}'
+            f'th {{ color: #f5f5f7; font-weight: 600; text-align: left; }}'
             f'</style></head><body>'
-            f'<div style="max-width: 800px; margin: 0 auto; padding: 16px;">'
+            f'<div style="max-width: 720px; margin: 0 auto; padding: 16px;">'
             f'{header}{messages_html}'
             f'</div></body></html>'
         )
         path.write_text(html_doc, encoding="utf-8")
         self.status_label.setText(f"HTML exportiert: {path.name}")
-        self.status_label.setStyleSheet("color: #34d399;")
+        self.status_label.setStyleSheet("color: #30d158;")
 
     def closeEvent(self, event):
         # Warn user if streaming is active
