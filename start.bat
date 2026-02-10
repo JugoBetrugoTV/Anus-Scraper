@@ -1,12 +1,11 @@
 @echo off
-chcp 65001 >nul 2>&1
 title Unzensierter KI Chat - Starter
 color 0F
 
 echo.
-echo  ╔══════════════════════════════════════╗
-echo  ║    Unzensierter KI Chat - Starter    ║
-echo  ╚══════════════════════════════════════╝
+echo  ========================================
+echo     Unzensierter KI Chat - Starter
+echo  ========================================
 echo.
 
 :: ============================================
@@ -14,42 +13,67 @@ echo.
 :: ============================================
 echo [1/4] Suche Python...
 
-where python >nul 2>&1
-if %errorlevel%==0 (
-    set PYTHON=python
-    goto :found_python
-)
-where python3 >nul 2>&1
-if %errorlevel%==0 (
-    set PYTHON=python3
-    goto :found_python
-)
-where py >nul 2>&1
+:: Zuerst "py" Launcher testen (zuverlaessigste Methode auf Windows)
+py --version >nul 2>&1
 if %errorlevel%==0 (
     set PYTHON=py
     goto :found_python
 )
 
+:: Dann python3 testen
+python3 --version >nul 2>&1
+if %errorlevel%==0 (
+    set PYTHON=python3
+    goto :found_python
+)
+
+:: python testen - aber pruefen ob es der Windows Store Alias ist
+python --version >nul 2>&1
+if %errorlevel%==0 (
+    :: Pruefen ob es echtes Python ist (nicht der Store-Alias)
+    for /f "tokens=*" %%i in ('python --version 2^>^&1') do (
+        echo %%i | findstr /i "Python" >nul 2>&1
+        if !errorlevel!==0 (
+            set PYTHON=python
+            goto :found_python
+        )
+    )
+)
+
 :: Python nicht gefunden - automatisch installieren via winget
-echo  [!] Python nicht gefunden.
-echo  [*] Versuche Python automatisch zu installieren...
+echo.
+echo  [!] Python wurde NICHT gefunden.
+echo.
+echo  Du hast zwei Optionen:
+echo.
+echo  Option 1: Automatisch (winget)
+echo  Option 2: Manuell von https://www.python.org/downloads/
+echo             WICHTIG: Haken bei "Add Python to PATH" setzen!
 echo.
 
 where winget >nul 2>&1
 if %errorlevel%==0 (
-    echo  [*] Installiere Python via winget...
+    echo  Versuche automatische Installation via winget...
+    echo.
     winget install Python.Python.3.12 --accept-source-agreements --accept-package-agreements
     if %errorlevel%==0 (
-        echo  [OK] Python installiert! Bitte starte dieses Script NEU.
+        echo.
+        echo  [OK] Python wurde installiert!
+        echo  WICHTIG: Schliesse dieses Fenster und starte start.bat NEU!
         echo.
         pause
         exit /b 0
     )
+    echo.
+    echo  [!] Automatische Installation fehlgeschlagen.
 )
 
-echo  [FEHLER] Python konnte nicht installiert werden.
-echo  Bitte installiere Python manuell: https://www.python.org/downloads/
-echo  WICHTIG: Haken bei "Add Python to PATH" setzen!
+echo.
+echo  Bitte installiere Python manuell:
+echo  https://www.python.org/downloads/
+echo.
+echo  WICHTIG: Beim Installer den Haken bei
+echo  "Add Python to PATH" setzen!
 echo.
 pause
 exit /b 1
@@ -90,6 +114,7 @@ if %errorlevel% neq 0 (
     "%VPYTHON%" -m pip install -r "%~dp0requirements.txt"
     if %errorlevel% neq 0 (
         echo  [FEHLER] Paketinstallation fehlgeschlagen!
+        echo.
         pause
         exit /b 1
     )
