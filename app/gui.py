@@ -325,11 +325,11 @@ def _generate_stylesheet(theme: dict) -> str:
 
 
 def _get_theme_colors(theme_name: str) -> dict:
-    return THEMES.get(theme_name, THEMES["Lila (Standard)"])
+    return THEMES.get(theme_name, THEMES["Blau (Standard)"])
 
 
 # Active theme colors for inline HTML (updated at startup and on theme change)
-_active_theme: dict = THEMES["Lila (Standard)"]
+_active_theme: dict = THEMES["Blau (Standard)"]
 
 
 def _set_active_theme(theme: dict):
@@ -1076,7 +1076,7 @@ class SettingsDialog(QDialog):
         self.theme_combo = QComboBox()
         self.theme_combo.addItems(THEMES.keys())
         settings = load_settings()
-        current_theme = settings.get("theme", "Lila (Standard)")
+        current_theme = settings.get("theme", "Blau (Standard)")
         idx = self.theme_combo.findText(current_theme)
         if idx >= 0:
             self.theme_combo.setCurrentIndex(idx)
@@ -3211,7 +3211,7 @@ class MainWindow(QMainWindow):
             self.check_ollama_async()
             # Apply theme if changed
             settings = load_settings()
-            theme_name = settings.get("theme", "Lila (Standard)")
+            theme_name = settings.get("theme", "Blau (Standard)")
             theme = _get_theme_colors(theme_name)
             _set_active_theme(theme)
             app = QApplication.instance()
