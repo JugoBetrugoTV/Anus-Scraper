@@ -949,9 +949,11 @@ class SetupWizard(QDialog):
             self.ollama_status.setStyleSheet("color: #30d158;")
             self._check_server()
         else:
-            self.ollama_status.setText("Ollama ist NICHT installiert.")
-            self.ollama_status.setStyleSheet("color: #ff453a;")
+            self.ollama_status.setText("Ollama nicht gefunden - installiere automatisch...")
+            self.ollama_status.setStyleSheet("color: #ff9f0a;")
             self.install_btn.setVisible(True)
+            # Auto-install starten
+            QTimer.singleShot(500, self._install_ollama)
 
     def _install_ollama(self):
         self.install_btn.setEnabled(False)
@@ -981,9 +983,11 @@ class SetupWizard(QDialog):
             self.server_status.setStyleSheet("color: #30d158;")
             self._check_models()
         else:
-            self.server_status.setText("Server ist nicht gestartet.")
+            self.server_status.setText("Starte Server automatisch...")
             self.server_status.setStyleSheet("color: #ff9f0a;")
             self.start_btn.setVisible(True)
+            # Auto-start server
+            QTimer.singleShot(300, self._start_server)
 
     def _start_server(self):
         self.start_btn.setEnabled(False)

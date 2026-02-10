@@ -40,7 +40,7 @@ def main():
 
     app = QApplication(sys.argv)
     app.setApplicationName("Unzensierter KI Chat")
-    theme_name = settings.get("theme", "Lila (Standard)")
+    theme_name = settings.get("theme", "Blau (Standard)")
     theme = _get_theme_colors(theme_name)
     _set_active_theme(theme)
     app.setStyleSheet(_generate_stylesheet(theme))
