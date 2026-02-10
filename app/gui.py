@@ -1,5 +1,6 @@
 """PyQt6 Chat GUI with dark theme, streaming, markdown, and persistence."""
 
+import base64
 import html
 import json
 import re
@@ -8,7 +9,8 @@ from datetime import datetime
 from pathlib import Path
 
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer, QUrl
-from PyQt6.QtGui import QColor, QDesktopServices, QIcon, QKeySequence, QPixmap, QShortcut
+from PyQt6.QtCore import QBuffer, QIODevice
+from PyQt6.QtGui import QColor, QDesktopServices, QIcon, QImage, QKeySequence, QPixmap, QShortcut
 from PyQt6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -284,6 +286,50 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
 }
 """
 
+# Theme color definitions: (primary, primary_light, accent, bg_dark, bg_mid, bg_light)
+THEMES = {
+    "Lila (Standard)": {
+        "primary": "#7c3aed", "primary_light": "#a78bfa", "primary_rgb": "124,58,237",
+        "accent": "#34d399", "accent_rgb": "52,211,153",
+        "bg_dark": "#0a0a14", "bg_mid": "#0f0f1a", "bg_light": "#1a1a2e", "bg_chat": "#12121f",
+    },
+    "Ozean Blau": {
+        "primary": "#0ea5e9", "primary_light": "#7dd3fc", "primary_rgb": "14,165,233",
+        "accent": "#34d399", "accent_rgb": "52,211,153",
+        "bg_dark": "#0a1014", "bg_mid": "#0c1520", "bg_light": "#152232", "bg_chat": "#0f1a28",
+    },
+    "Cyber Grün": {
+        "primary": "#22c55e", "primary_light": "#86efac", "primary_rgb": "34,197,94",
+        "accent": "#fbbf24", "accent_rgb": "251,191,36",
+        "bg_dark": "#0a140a", "bg_mid": "#0f1a0f", "bg_light": "#1a2e1a", "bg_chat": "#121f12",
+    },
+    "Blutrot": {
+        "primary": "#ef4444", "primary_light": "#fca5a5", "primary_rgb": "239,68,68",
+        "accent": "#fbbf24", "accent_rgb": "251,191,36",
+        "bg_dark": "#140a0a", "bg_mid": "#1a0f0f", "bg_light": "#2e1a1a", "bg_chat": "#1f1212",
+    },
+}
+
+
+def _generate_stylesheet(theme: dict) -> str:
+    """Generate QSS stylesheet from theme colors."""
+    p = theme["primary"]
+    pl = theme["primary_light"]
+    pr = theme["primary_rgb"]
+    bd = theme["bg_dark"]
+    bm = theme["bg_mid"]
+    bl = theme["bg_light"]
+    bc = theme["bg_chat"]
+    return DARK_STYLE.replace("#7c3aed", p).replace("#a78bfa", pl).replace(
+        "124,58,237", pr
+    ).replace("#0a0a14", bd).replace("#0f0f1a", bm).replace(
+        "#1a1a2e", bl
+    ).replace("#12121f", bc)
+
+
+def _get_theme_colors(theme_name: str) -> dict:
+    return THEMES.get(theme_name, THEMES["Lila (Standard)"])
+
 
 def _convert_tables(text: str) -> str:
     """Convert markdown tables to HTML tables."""
@@ -388,8 +434,18 @@ def markdown_to_html(text: str, msg_index: int = -1) -> str:
     return text
 
 
-def _build_message_html(role: str, content: str, time_str: str, streaming: bool = False, msg_index: int = -1) -> str:
+def _build_message_html(role: str, content: str, time_str: str, streaming: bool = False, msg_index: int = -1, images: list[str] | None = None) -> str:
     """Build HTML for a single chat message with clickable copy/edit links."""
+    img_html = ""
+    if images:
+        for b64 in images:
+            img_html += (
+                f'<div style="margin:6px 0;">'
+                f'<img src="data:image/png;base64,{b64}" '
+                f'style="max-width:200px; max-height:150px; border-radius:8px; '
+                f'border:1px solid rgba(124,58,237,0.2);">'
+                f'</div>'
+            )
     if role == "user":
         rendered = html.escape(content).replace("\n", "<br>")
         link_style = 'color:#5a5a70; font-size:11px; text-decoration:none;'
@@ -404,6 +460,7 @@ def _build_message_html(role: str, content: str, time_str: str, streaming: bool 
             f'max-width:78%; margin-left:auto; text-align:right;">'
             f'<div style="margin-bottom:6px;">'
             f'<span style="color:#a78bfa; font-weight:600; font-size:12px;">Du</span></div>'
+            f'{img_html}'
             f'<span style="color:#e8e8f0; line-height:1.6;">{rendered}</span>'
             f'<div style="color:#5a5a70; font-size:11px; margin-top:8px; '
             f'padding-top:6px; border-top:1px solid rgba(124,58,237,0.1);">'
@@ -424,8 +481,9 @@ def _build_message_html(role: str, content: str, time_str: str, streaming: bool 
             ki_label = '<span style="color:#34d399; font-weight:600; font-size:12px;">KI</span>'
             link_style = 'color:#5a5a70; font-size:11px; text-decoration:none;'
             copy_link = f'<a href="action:copy:{msg_index}" style="{link_style}">kopieren</a>'
+            regen_link = f'<a href="action:regenmodel:{msg_index}" style="{link_style}">anderes Modell</a>'
             delete_link = f'<a href="action:delete:{msg_index}" style="{link_style}">entfernen</a>'
-            action_links = f'{copy_link} &middot; {delete_link} &middot; {time_str}'
+            action_links = f'{copy_link} &middot; {regen_link} &middot; {delete_link} &middot; {time_str}'
         return (
             f'<div style="margin:10px 0; padding:14px 18px; '
             f'background: rgba(52,211,153,0.04); '
@@ -549,6 +607,24 @@ class StreamWorker(QThread):
                 r.close()
             except Exception:
                 pass
+
+
+class TitleWorker(QThread):
+    """Background thread to generate a chat title via LLM."""
+    title_ready = pyqtSignal(str, str)  # session_id, title
+
+    def __init__(self, client: OllamaClient, session_id: str, user_msg: str, assistant_msg: str, model: str):
+        super().__init__()
+        self.client = client
+        self.session_id = session_id
+        self.user_msg = user_msg
+        self.assistant_msg = assistant_msg
+        self.model = model
+
+    def run(self):
+        title = self.client.generate_title(self.user_msg, self.assistant_msg, self.model)
+        if title:
+            self.title_ready.emit(self.session_id, title)
 
 
 class ModelPullWorker(QThread):
@@ -961,6 +1037,16 @@ class SettingsDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.setSpacing(12)
 
+        layout.addWidget(QLabel("Theme:"))
+        self.theme_combo = QComboBox()
+        self.theme_combo.addItems(THEMES.keys())
+        settings = load_settings()
+        current_theme = settings.get("theme", "Lila (Standard)")
+        idx = self.theme_combo.findText(current_theme)
+        if idx >= 0:
+            self.theme_combo.setCurrentIndex(idx)
+        layout.addWidget(self.theme_combo)
+
         layout.addWidget(QLabel("Ollama URL:"))
         self.url_input = QLineEdit()
         self.url_input.setText(self.client.base_url)
@@ -1110,14 +1196,199 @@ class SettingsDialog(QDialog):
 
     def save_and_close(self):
         url = self.url_input.text().strip()
+        settings = load_settings()
         if url:
             self.client.set_base_url(url)
-            settings = load_settings()
             settings["ollama_url"] = url
-            save_settings(settings)
+        # Save theme
+        theme_name = self.theme_combo.currentText()
+        settings["theme"] = theme_name
+        save_settings(settings)
         self.session.model = self.model_combo.currentText()
         self.session.temperature = self.temp_spin.value()
         self.session.system_prompt = self.system_edit.toPlainText()
+        self.accept()
+
+
+class ModelInfoDialog(QDialog):
+    """Dialog showing detailed model information."""
+
+    def __init__(self, parent, client: OllamaClient, model_name: str):
+        super().__init__(parent)
+        self.setWindowTitle(f"Modell-Info: {model_name}")
+        self.setMinimumSize(500, 400)
+        layout = QVBoxLayout(self)
+        layout.setSpacing(10)
+
+        title = QLabel(model_name)
+        title.setStyleSheet("color: #a78bfa; font-size: 18px; font-weight: 700;")
+        layout.addWidget(title)
+
+        info = client.show_model(model_name)
+        if not info:
+            layout.addWidget(QLabel("Konnte Modell-Informationen nicht laden."))
+            btn = QPushButton("Schließen")
+            btn.clicked.connect(self.accept)
+            layout.addWidget(btn)
+            return
+
+        details = QTextBrowser()
+        details.setOpenLinks(False)
+        html_parts = []
+
+        # Model details
+        if "details" in info:
+            d = info["details"]
+            html_parts.append('<table style="border-collapse:collapse; width:100%;">')
+            fields = [
+                ("Familie", d.get("family", "")),
+                ("Parameter", d.get("parameter_size", "")),
+                ("Quantisierung", d.get("quantization_level", "")),
+                ("Format", d.get("format", "")),
+            ]
+            for label, value in fields:
+                if value:
+                    html_parts.append(
+                        f'<tr><td style="color:#a78bfa; padding:6px 12px; font-weight:600;">{label}</td>'
+                        f'<td style="color:#e8e8f0; padding:6px 12px;">{value}</td></tr>'
+                    )
+            html_parts.append("</table>")
+
+        # Template
+        if info.get("template"):
+            html_parts.append(
+                f'<div style="margin-top:12px;">'
+                f'<span style="color:#a78bfa; font-weight:600;">Template:</span>'
+                f'<pre style="background:#0a0a14; padding:10px; border-radius:8px; '
+                f'color:#c9d1d9; font-size:12px; white-space:pre-wrap; margin-top:4px;">'
+                f'{html_escape(info["template"][:500])}</pre></div>'
+            )
+
+        # Parameters
+        if info.get("parameters"):
+            html_parts.append(
+                f'<div style="margin-top:12px;">'
+                f'<span style="color:#a78bfa; font-weight:600;">Parameter:</span>'
+                f'<pre style="background:#0a0a14; padding:10px; border-radius:8px; '
+                f'color:#c9d1d9; font-size:12px; white-space:pre-wrap; margin-top:4px;">'
+                f'{html_escape(info["parameters"][:500])}</pre></div>'
+            )
+
+        # License
+        if info.get("license"):
+            html_parts.append(
+                f'<div style="margin-top:12px;">'
+                f'<span style="color:#a78bfa; font-weight:600;">Lizenz:</span>'
+                f'<pre style="background:#0a0a14; padding:10px; border-radius:8px; '
+                f'color:#9898b0; font-size:11px; white-space:pre-wrap; margin-top:4px;">'
+                f'{html_escape(info["license"][:300])}</pre></div>'
+            )
+
+        details.setHtml(
+            f'<div style="font-family: Segoe UI, Arial, sans-serif; padding:8px;">{"".join(html_parts)}</div>'
+        )
+        layout.addWidget(details, 1)
+
+        btn = QPushButton("Schließen")
+        btn.setObjectName("secondary")
+        btn.clicked.connect(self.accept)
+        layout.addWidget(btn)
+
+
+def html_escape(text: str) -> str:
+    return html.escape(text)
+
+
+class BulkDeleteDialog(QDialog):
+    """Dialog to select and delete multiple messages."""
+
+    def __init__(self, parent, messages: list):
+        super().__init__(parent)
+        self.messages = messages
+        self.setWindowTitle("Nachrichten löschen")
+        self.setMinimumSize(500, 400)
+        self.selected_indices: list[int] = []
+        self.setup_ui()
+
+    def setup_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setSpacing(10)
+
+        layout.addWidget(QLabel("Nachrichten zum Löschen auswählen:"))
+
+        select_row = QHBoxLayout()
+        btn_all = QPushButton("Alle")
+        btn_all.setObjectName("secondary")
+        btn_all.clicked.connect(self._select_all)
+        select_row.addWidget(btn_all)
+        btn_none = QPushButton("Keine")
+        btn_none.setObjectName("secondary")
+        btn_none.clicked.connect(self._select_none)
+        select_row.addWidget(btn_none)
+        btn_user = QPushButton("Nur User")
+        btn_user.setObjectName("secondary")
+        btn_user.clicked.connect(self._select_user)
+        select_row.addWidget(btn_user)
+        btn_ki = QPushButton("Nur KI")
+        btn_ki.setObjectName("secondary")
+        btn_ki.clicked.connect(self._select_ki)
+        select_row.addWidget(btn_ki)
+        layout.addLayout(select_row)
+
+        self.msg_list = QListWidget()
+        self.msg_list.setSelectionMode(QListWidget.SelectionMode.MultiSelection)
+        for i, m in enumerate(self.messages):
+            prefix = "Du" if m.role == "user" else "KI"
+            preview = m.content.replace("\n", " ")[:60]
+            time_str = m.timestamp.strftime("%H:%M")
+            item = QListWidgetItem(f"[{time_str}] {prefix}: {preview}")
+            self.msg_list.addItem(item)
+        layout.addWidget(self.msg_list, 1)
+
+        self.count_label = QLabel("0 ausgewählt")
+        self.msg_list.itemSelectionChanged.connect(self._update_count)
+        layout.addWidget(self.count_label)
+
+        btn_row = QHBoxLayout()
+        btn_cancel = QPushButton("Abbrechen")
+        btn_cancel.setObjectName("secondary")
+        btn_cancel.clicked.connect(self.reject)
+        btn_row.addWidget(btn_cancel)
+        btn_delete = QPushButton("Ausgewählte löschen")
+        btn_delete.setObjectName("danger")
+        btn_delete.clicked.connect(self._confirm_delete)
+        btn_row.addWidget(btn_delete)
+        layout.addLayout(btn_row)
+
+    def _select_all(self):
+        self.msg_list.selectAll()
+
+    def _select_none(self):
+        self.msg_list.clearSelection()
+
+    def _select_user(self):
+        self.msg_list.clearSelection()
+        for i, m in enumerate(self.messages):
+            if m.role == "user":
+                self.msg_list.item(i).setSelected(True)
+
+    def _select_ki(self):
+        self.msg_list.clearSelection()
+        for i, m in enumerate(self.messages):
+            if m.role == "assistant":
+                self.msg_list.item(i).setSelected(True)
+
+    def _update_count(self):
+        count = len(self.msg_list.selectedItems())
+        self.count_label.setText(f"{count} ausgewählt")
+
+    def _confirm_delete(self):
+        self.selected_indices = sorted(
+            [self.msg_list.row(item) for item in self.msg_list.selectedItems()],
+            reverse=True,
+        )
+        if not self.selected_indices:
+            return
         self.accept()
 
 
@@ -1148,6 +1419,8 @@ class MainWindow(QMainWindow):
         self._tray_icon: QSystemTrayIcon | None = None
         self._sort_mode: str = settings.get("sort_mode", "newest")
         self._start_worker: OllamaStartWorker | None = None
+        self._title_worker: TitleWorker | None = None
+        self._pending_images: list[str] = []  # base64 images for next message
 
         # Batched streaming render timer
         self._render_timer = QTimer()
@@ -1285,7 +1558,7 @@ class MainWindow(QMainWindow):
     def _update_model_label(self):
         """Update the model name display in the bottom bar."""
         if self.current_session:
-            self.model_label.setText(self.current_session.model)
+            self.model_label.setText(f"[{self.current_session.model}]")
         else:
             self.model_label.setText("")
 
@@ -1339,6 +1612,11 @@ class MainWindow(QMainWindow):
         self.sort_combo.addItems(["Neueste zuerst", "Älteste zuerst", "Name A-Z", "Name Z-A", "Meiste Nachrichten"])
         self.sort_combo.currentIndexChanged.connect(self._sort_sessions)
         sidebar_layout.addWidget(self.sort_combo)
+
+        self.folder_combo = QComboBox()
+        self.folder_combo.addItem("Alle Ordner")
+        self.folder_combo.currentTextChanged.connect(self._on_folder_filter_changed)
+        sidebar_layout.addWidget(self.folder_combo)
 
         self.session_list = QListWidget()
         self.session_list.currentRowChanged.connect(self.switch_session)
@@ -1458,6 +1736,12 @@ class MainWindow(QMainWindow):
         self.edit_last_btn.setVisible(False)
         action_layout.addWidget(self.edit_last_btn)
 
+        self.bulk_delete_btn = QPushButton("Nachrichten löschen...")
+        self.bulk_delete_btn.setObjectName("small")
+        self.bulk_delete_btn.clicked.connect(self._open_bulk_delete)
+        self.bulk_delete_btn.setVisible(False)
+        action_layout.addWidget(self.bulk_delete_btn)
+
         action_layout.addStretch()
 
         self.autoscroll_btn = QPushButton("Auto-Scroll: AN")
@@ -1500,6 +1784,17 @@ class MainWindow(QMainWindow):
         self.stop_btn.setVisible(False)
         btn_col.addWidget(self.stop_btn)
 
+        img_row = QHBoxLayout()
+        self.attach_img_btn = QPushButton("Bild")
+        self.attach_img_btn.setObjectName("small")
+        self.attach_img_btn.clicked.connect(self._attach_image)
+        img_row.addWidget(self.attach_img_btn)
+        self.image_indicator = QLabel("")
+        self.image_indicator.setStyleSheet("color: #a78bfa; font-size: 11px;")
+        self.image_indicator.setVisible(False)
+        img_row.addWidget(self.image_indicator)
+        btn_col.addLayout(img_row)
+
         self.input_counter_label = QLabel("")
         self.input_counter_label.setStyleSheet("color: #4a4a5a; font-size: 11px;")
         self.input_counter_label.setAlignment(Qt.AlignmentFlag.AlignRight)
@@ -1518,9 +1813,11 @@ class MainWindow(QMainWindow):
         self.status_label.setStyleSheet("color: #6b6b80;")
         bottom_layout.addWidget(self.status_label, 1)
 
-        self.model_label = QLabel("")
-        self.model_label.setStyleSheet("color: #a78bfa; font-size: 12px; font-weight: 600;")
-        self.model_label.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self.model_label = QPushButton("")
+        self.model_label.setObjectName("small")
+        self.model_label.setStyleSheet("color: #a78bfa; font-size: 12px; font-weight: 600; text-decoration: underline;")
+        self.model_label.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.model_label.clicked.connect(self._show_model_info)
         bottom_layout.addWidget(self.model_label)
 
         self.stats_label = QLabel("")
@@ -1542,6 +1839,17 @@ class MainWindow(QMainWindow):
             ):
                 self.send_message()
                 return True
+            # Ctrl+V image paste
+            if (
+                event.key() == Qt.Key.Key_V
+                and event.modifiers() & Qt.KeyboardModifier.ControlModifier
+            ):
+                clipboard = QApplication.clipboard()
+                if clipboard and clipboard.mimeData().hasImage():
+                    img = clipboard.image()
+                    if not img.isNull():
+                        self._add_image_from_qimage(img)
+                        return True
         return super().eventFilter(obj, event)
 
     # --- Dynamic input height ---
@@ -1561,6 +1869,52 @@ class MainWindow(QMainWindow):
             self.input_counter_label.setText(f"{words}W | {chars}Z")
         else:
             self.input_counter_label.setText("")
+
+    # --- Image handling ---
+
+    def _add_image_from_qimage(self, img: QImage):
+        """Convert QImage to base64 and add to pending images."""
+        buf = QBuffer()
+        buf.open(QIODevice.OpenModeFlag.WriteOnly)
+        img.save(buf, "PNG")
+        b64 = base64.b64encode(buf.data().data()).decode("ascii")
+        buf.close()
+        self._pending_images.append(b64)
+        count = len(self._pending_images)
+        self.status_label.setText(f"{count} Bild(er) angehängt")
+        self.status_label.setStyleSheet("color: #a78bfa;")
+        self._update_image_label()
+
+    def _add_image_from_path(self, path: Path):
+        """Load image file and add to pending images."""
+        try:
+            data = path.read_bytes()
+            b64 = base64.b64encode(data).decode("ascii")
+            self._pending_images.append(b64)
+            self._update_image_label()
+            self.status_label.setText(f"{len(self._pending_images)} Bild(er) angehängt")
+            self.status_label.setStyleSheet("color: #a78bfa;")
+        except Exception:
+            pass
+
+    def _update_image_label(self):
+        if self._pending_images:
+            self.image_indicator.setText(f"{len(self._pending_images)} Bild(er)")
+            self.image_indicator.setVisible(True)
+        else:
+            self.image_indicator.setVisible(False)
+
+    def _clear_pending_images(self):
+        self._pending_images.clear()
+        self._update_image_label()
+
+    def _attach_image(self):
+        paths, _ = QFileDialog.getOpenFileNames(
+            self, "Bild anhängen", "",
+            "Bilder (*.png *.jpg *.jpeg *.gif *.bmp *.webp)"
+        )
+        for p in paths:
+            self._add_image_from_path(Path(p))
 
     # --- Auto-scroll toggle ---
 
@@ -1664,11 +2018,20 @@ class MainWindow(QMainWindow):
     def dropEvent(self, event):
         if event.mimeData().hasUrls():
             texts = []
+            images_added = 0
             skipped = 0
             max_file_size = 1 * 1024 * 1024  # 1 MB
+            image_exts = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp"}
             for url in event.mimeData().urls():
                 path = Path(url.toLocalFile())
                 if path.is_file():
+                    if path.suffix.lower() in image_exts:
+                        if path.stat().st_size <= 10 * 1024 * 1024:  # 10 MB for images
+                            self._add_image_from_path(path)
+                            images_added += 1
+                        else:
+                            skipped += 1
+                        continue
                     if path.stat().st_size > max_file_size:
                         skipped += 1
                         continue
@@ -1677,16 +2040,17 @@ class MainWindow(QMainWindow):
                         texts.append(f"--- {path.name} ---\n{content}")
                     except Exception:
                         skipped += 1
+            parts = []
             if texts:
                 self.input_field.insertPlainText("\n".join(texts) + "\n")
-                msg = f"{len(texts)} Datei(en) eingefügt"
-                if skipped:
-                    msg += f" ({skipped} übersprungen - zu groß/nicht lesbar)"
-                self.status_label.setText(msg)
+                parts.append(f"{len(texts)} Datei(en) eingefügt")
+            if images_added:
+                parts.append(f"{images_added} Bild(er) angehängt")
+            if skipped:
+                parts.append(f"{skipped} übersprungen")
+            if parts:
+                self.status_label.setText(" | ".join(parts))
                 self.status_label.setStyleSheet("color: #34d399;")
-            elif skipped:
-                self.status_label.setText(f"{skipped} Datei(en) übersprungen (max. 1MB / nur Text)")
-                self.status_label.setStyleSheet("color: #fbbf24;")
             event.acceptProposedAction()
         else:
             super().dropEvent(event)
@@ -1771,6 +2135,29 @@ class MainWindow(QMainWindow):
             self._update_action_buttons()
             row = self.session_list.currentRow()
             self._update_session_list_item(row)
+        elif action == "regenmodel":
+            if msg.role != "assistant":
+                return
+            if self.stream_worker and self.stream_worker.isRunning():
+                return
+            models = self.client.list_models()
+            if not models:
+                self.status_label.setText("Keine Modelle verfügbar!")
+                self.status_label.setStyleSheet("color: #f87171;")
+                return
+            model, ok = QInputDialog.getItem(
+                self, "Modell wählen", "Mit welchem Modell neu generieren?",
+                models, 0, False
+            )
+            if not ok or not model:
+                return
+            # Remove this and all subsequent messages, regenerate with chosen model
+            self.current_session.messages = self.current_session.messages[:idx]
+            self.current_session.model = model
+            self._mark_dirty()
+            self._update_model_label()
+            self.render_chat()
+            self._start_streaming()
         elif action == "edit":
             if msg.role != "user":
                 return
@@ -1800,12 +2187,15 @@ class MainWindow(QMainWindow):
             self.sort_combo.setCurrentIndex(idx)
             self.sort_combo.blockSignals(False)
             self._sort_sessions(idx)
+            self._update_folder_filter()
         else:
             self.new_session()
 
     def _session_label(self, s: ChatSession) -> str:
         msg_count = len(s.messages)
-        label = f"{s.name}  ({msg_count})" if msg_count else s.name
+        pin = "[PIN] " if s.pinned else ""
+        folder = f"[{s.folder}] " if s.folder else ""
+        label = f"{pin}{folder}{s.name}  ({msg_count})" if msg_count else f"{pin}{folder}{s.name}"
         if s.messages:
             last = s.messages[-1]
             prefix = "Du: " if last.role == "user" else "KI: "
@@ -1870,15 +2260,25 @@ class MainWindow(QMainWindow):
             "QMenu::item:selected { background-color: rgba(124,58,237,0.25); }"
             "QMenu::separator { height: 1px; background: rgba(124,58,237,0.15); margin: 4px 8px; }"
         )
+        s = self.sessions[row]
+        pin_text = "Entpinnen" if s.pinned else "Anpinnen"
+        pin_action = menu.addAction(pin_text)
         rename_action = menu.addAction("Umbenennen")
+        folder_action = menu.addAction("Ordner zuweisen...")
         duplicate_action = menu.addAction("Duplizieren")
         export_txt_action = menu.addAction("Export .txt")
         export_json_action = menu.addAction("Export .json")
         menu.addSeparator()
         delete_action = menu.addAction("Löschen")
         action = menu.exec(self.session_list.mapToGlobal(pos))
-        if action == rename_action:
+        if action == pin_action:
+            s.pinned = not s.pinned
+            self._mark_dirty(s)
+            self._sort_sessions(self.sort_combo.currentIndex())
+        elif action == rename_action:
             self._rename_session(item)
+        elif action == folder_action:
+            self._assign_folder(row)
         elif action == duplicate_action:
             self.session_list.setCurrentRow(row)
             self.duplicate_session()
@@ -1904,6 +2304,31 @@ class MainWindow(QMainWindow):
             self.sessions[row].name = new_name.strip()
             self._update_session_list_item(row)
             self._mark_dirty(self.sessions[row])
+
+    def _assign_folder(self, row: int):
+        if row < 0 or row >= len(self.sessions):
+            return
+        s = self.sessions[row]
+        existing_folders = sorted({ss.folder for ss in self.sessions if ss.folder})
+        choices = ["(Kein Ordner)"] + existing_folders + ["+ Neuer Ordner..."]
+        choice, ok = QInputDialog.getItem(
+            self, "Ordner zuweisen", "Ordner:", choices, 0, False
+        )
+        if not ok:
+            return
+        if choice == "(Kein Ordner)":
+            s.folder = ""
+        elif choice == "+ Neuer Ordner...":
+            name, ok2 = QInputDialog.getText(self, "Neuer Ordner", "Ordnername:")
+            if ok2 and name.strip():
+                s.folder = name.strip()
+            else:
+                return
+        else:
+            s.folder = choice
+        self._mark_dirty(s)
+        self._update_session_list_item(row)
+        self._update_folder_filter()
 
     def duplicate_session(self):
         if not self.current_session:
@@ -2003,6 +2428,29 @@ class MainWindow(QMainWindow):
                 ) if i < len(self.sessions) else False
                 item.setHidden(query not in name and not content_match)
 
+    # --- Folder filter ---
+
+    def _update_folder_filter(self):
+        current = self.folder_combo.currentText()
+        self.folder_combo.blockSignals(True)
+        self.folder_combo.clear()
+        self.folder_combo.addItem("Alle Ordner")
+        folders = sorted({s.folder for s in self.sessions if s.folder})
+        self.folder_combo.addItems(folders)
+        idx = self.folder_combo.findText(current)
+        self.folder_combo.setCurrentIndex(idx if idx >= 0 else 0)
+        self.folder_combo.blockSignals(False)
+
+    def _on_folder_filter_changed(self, text: str):
+        folder = "" if text == "Alle Ordner" else text
+        for i in range(self.session_list.count()):
+            item = self.session_list.item(i)
+            if i < len(self.sessions):
+                if folder and self.sessions[i].folder != folder:
+                    item.setHidden(True)
+                else:
+                    item.setHidden(False)
+
     # --- Session sorting ---
 
     def _sort_sessions(self, index: int):
@@ -2018,7 +2466,14 @@ class MainWindow(QMainWindow):
         }
         key_fn = sort_map.get(index, sort_map[0])
         reverse = index in (0, 3, 4)
-        self.sessions.sort(key=key_fn, reverse=reverse)
+        # Pinned sessions always come first
+        self.sessions.sort(key=lambda s: (not s.pinned, key_fn(s)), reverse=False)
+        # For the non-pinned part, respect the sort direction
+        pinned = [s for s in self.sessions if s.pinned]
+        unpinned = [s for s in self.sessions if not s.pinned]
+        unpinned.sort(key=key_fn, reverse=reverse)
+        pinned.sort(key=key_fn, reverse=reverse)
+        self.sessions = pinned + unpinned
         # Rebuild list widget
         self.session_list.blockSignals(True)
         self.session_list.clear()
@@ -2087,7 +2542,7 @@ class MainWindow(QMainWindow):
                 )
                 last_date = msg_date
             time_str = msg.timestamp.strftime("%H:%M")
-            parts.append(_build_message_html(msg.role, msg.content, time_str, msg_index=idx))
+            parts.append(_build_message_html(msg.role, msg.content, time_str, msg_index=idx, images=msg.images))
         return "".join(parts)
 
     def render_chat(self):
@@ -2166,6 +2621,7 @@ class MainWindow(QMainWindow):
         self.regen_btn.setVisible(bool(has_assistant) and not is_streaming)
         self.copy_last_btn.setVisible(bool(has_assistant) and not is_streaming)
         self.edit_last_btn.setVisible(bool(has_user) and not is_streaming)
+        self.bulk_delete_btn.setVisible(bool(has_msgs) and not is_streaming and len(self.current_session.messages) > 1)
 
     # --- Context auto-trimming ---
 
@@ -2203,7 +2659,9 @@ class MainWindow(QMainWindow):
         if self.stream_worker and self.stream_worker.isRunning():
             return
 
-        self.current_session.messages.append(Message(role="user", content=text))
+        images = self._pending_images.copy()
+        self._clear_pending_images()
+        self.current_session.messages.append(Message(role="user", content=text, images=images))
         self.input_field.clear()
         self._mark_dirty()
 
@@ -2266,6 +2724,14 @@ class MainWindow(QMainWindow):
         else:
             self.status_label.setText(f"Bereit | Antwort in {elapsed:.1f}s")
         self.status_label.setStyleSheet("color: #34d399;")
+        # Auto-generate title after first exchange
+        if (
+            self.current_session
+            and len(self.current_session.messages) == 2
+            and self.current_session.messages[0].role == "user"
+            and full_response
+        ):
+            self._request_auto_title()
         # Flash title + tray notification if window not focused
         if not self.isActiveWindow():
             self._title_flash_timer.start()
@@ -2315,6 +2781,30 @@ class MainWindow(QMainWindow):
         self._reset_input_state()
         self.status_label.setText("Gestoppt")
         self.status_label.setStyleSheet("color: #fbbf24;")
+
+    def _request_auto_title(self):
+        if not self.current_session or len(self.current_session.messages) < 2:
+            return
+        user_msg = self.current_session.messages[0].content
+        assistant_msg = self.current_session.messages[1].content
+        self._title_worker = TitleWorker(
+            self.client, self.current_session.session_id,
+            user_msg, assistant_msg, self.current_session.model,
+        )
+        self._title_worker.title_ready.connect(self._on_title_ready)
+        self._title_worker.finished.connect(self._title_worker.deleteLater)
+        self._title_worker.start()
+
+    def _on_title_ready(self, session_id: str, title: str):
+        for i, s in enumerate(self.sessions):
+            if s.session_id == session_id:
+                s.name = title
+                self._update_session_list_item(i)
+                self._mark_dirty(s)
+                if s is self.current_session:
+                    self._cached_header_html = ""
+                    self.render_chat()
+                break
 
     def _reset_input_state(self):
         self.send_btn.setVisible(True)
@@ -2376,6 +2866,26 @@ class MainWindow(QMainWindow):
         self.render_chat()
         self._start_streaming()
 
+    def _open_bulk_delete(self):
+        if not self.current_session or not self.current_session.messages:
+            return
+        if self.stream_worker and self.stream_worker.isRunning():
+            return
+        dlg = BulkDeleteDialog(self, self.current_session.messages)
+        if dlg.exec():
+            for idx in dlg.selected_indices:  # already sorted reverse
+                if 0 <= idx < len(self.current_session.messages):
+                    self.current_session.messages.pop(idx)
+            self._mark_dirty()
+            self._cached_history_html = ""
+            self.render_chat()
+            self._update_counters()
+            self._update_action_buttons()
+            row = self.session_list.currentRow()
+            self._update_session_list_item(row)
+            self.status_label.setText(f"{len(dlg.selected_indices)} Nachricht(en) gelöscht")
+            self.status_label.setStyleSheet("color: #34d399;")
+
     # --- Dialogs ---
 
     def open_settings(self):
@@ -2386,6 +2896,22 @@ class MainWindow(QMainWindow):
             self._mark_dirty()
             self._update_model_label()
             self.check_ollama_async()
+            # Apply theme if changed
+            settings = load_settings()
+            theme_name = settings.get("theme", "Lila (Standard)")
+            theme = _get_theme_colors(theme_name)
+            app = QApplication.instance()
+            if app:
+                app.setStyleSheet(_generate_stylesheet(theme))
+
+    def _show_model_info(self):
+        if not self.current_session:
+            return
+        model = self.current_session.model
+        if not model:
+            return
+        dlg = ModelInfoDialog(self, self.client, model)
+        dlg.exec()
 
     def open_model_pull(self):
         dlg = ModelPullDialog(self, self.client)

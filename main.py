@@ -7,7 +7,7 @@ from pathlib import Path
 
 from PyQt6.QtWidgets import QApplication
 
-from app.gui import MainWindow, DARK_STYLE
+from app.gui import MainWindow, DARK_STYLE, THEMES, _generate_stylesheet, _get_theme_colors
 from app.ollama_manager import OllamaManager
 from app.models import load_settings, save_settings
 
@@ -40,7 +40,9 @@ def main():
 
     app = QApplication(sys.argv)
     app.setApplicationName("Unzensierter KI Chat")
-    app.setStyleSheet(DARK_STYLE)
+    theme_name = settings.get("theme", "Lila (Standard)")
+    theme = _get_theme_colors(theme_name)
+    app.setStyleSheet(_generate_stylesheet(theme))
 
     window = MainWindow(ollama_manager=manager)
     window.show()

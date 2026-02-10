@@ -67,6 +67,42 @@ class OllamaClient:
         finally:
             r.close()
 
+    def generate_title(self, user_msg: str, assistant_msg: str, model: str = "dolphin-mistral") -> str:
+        """Generate a short chat title from the first exchange."""
+        try:
+            r = self.session.post(
+                f"{self.base_url}/api/chat",
+                json={
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": "Antworte NUR mit einem kurzen Titel (max 5 Wörter). Kein Punkt am Ende."},
+                        {"role": "user", "content": f"Erstelle einen kurzen Titel für dieses Gespräch:\nUser: {user_msg[:200]}\nAssistent: {assistant_msg[:200]}"},
+                    ],
+                    "stream": False,
+                    "options": {"temperature": 0.3},
+                },
+                timeout=15,
+            )
+            r.raise_for_status()
+            data = r.json()
+            title = data.get("message", {}).get("content", "").strip().strip('"').strip(".")
+            return title[:50] if title else ""
+        except Exception:
+            return ""
+
+    def show_model(self, model: str) -> dict:
+        """Get model details from Ollama."""
+        try:
+            r = self.session.post(
+                f"{self.base_url}/api/show",
+                json={"name": model},
+                timeout=10,
+            )
+            r.raise_for_status()
+            return r.json()
+        except Exception:
+            return {}
+
     def delete_model(self, model: str) -> bool:
         """Delete a model from Ollama."""
         try:

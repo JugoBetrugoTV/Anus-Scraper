@@ -43,13 +43,17 @@ class Message:
     role: str  # "user", "assistant", "system"
     content: str
     timestamp: datetime = field(default_factory=datetime.now)
+    images: list[str] = field(default_factory=list)  # base64-encoded images
 
     def to_dict(self) -> dict:
-        return {
+        d = {
             "role": self.role,
             "content": self.content,
             "timestamp": self.timestamp.isoformat(),
         }
+        if self.images:
+            d["images"] = self.images
+        return d
 
     @classmethod
     def from_dict(cls, data: dict) -> "Message":
@@ -57,6 +61,7 @@ class Message:
             role=data["role"],
             content=data["content"],
             timestamp=datetime.fromisoformat(data["timestamp"]),
+            images=data.get("images", []),
         )
 
 
@@ -72,6 +77,8 @@ class ChatSession:
     temperature: float = 0.8
     created_at: datetime = field(default_factory=datetime.now)
     session_id: str = ""
+    pinned: bool = False
+    folder: str = ""
 
     def __post_init__(self):
         if not self.session_id:
@@ -82,7 +89,10 @@ class ChatSession:
         if self.system_prompt:
             msgs.append({"role": "system", "content": self.system_prompt})
         for m in self.messages:
-            msgs.append({"role": m.role, "content": m.content})
+            msg = {"role": m.role, "content": m.content}
+            if m.images:
+                msg["images"] = m.images
+            msgs.append(msg)
         return msgs
 
     def estimate_tokens(self) -> int:
@@ -100,6 +110,8 @@ class ChatSession:
             "temperature": self.temperature,
             "created_at": self.created_at.isoformat(),
             "session_id": self.session_id,
+            "pinned": self.pinned,
+            "folder": self.folder,
             "messages": [m.to_dict() for m in self.messages],
         }
 
@@ -112,6 +124,8 @@ class ChatSession:
             temperature=data.get("temperature", 0.8),
             created_at=datetime.fromisoformat(data["created_at"]),
             session_id=data.get("session_id", ""),
+            pinned=data.get("pinned", False),
+            folder=data.get("folder", ""),
         )
         session.messages = [Message.from_dict(m) for m in data.get("messages", [])]
         return session
