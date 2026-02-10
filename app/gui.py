@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer, QUrl
-from PyQt6.QtGui import QKeySequence, QShortcut
+from PyQt6.QtGui import QDesktopServices, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -49,6 +49,8 @@ _RE_BULLET = re.compile(r"^[*\-] (.+)$", re.MULTILINE)
 _RE_NUMLIST = re.compile(r"^(\d+)\. (.+)$", re.MULTILINE)
 _RE_BLOCKQUOTE = re.compile(r"^&gt; (.+)$", re.MULTILINE)
 _RE_HR = re.compile(r"^-{3,}$", re.MULTILINE)
+_RE_LINK = re.compile(r"\[([^\]]+)\]\((https?://[^\s\)]+)\)")
+_RE_STRIKETHROUGH = re.compile(r"~~(.+?)~~")
 
 # Context window limits (in estimated tokens)
 CONTEXT_SOFT_LIMIT = 6000
@@ -226,6 +228,11 @@ def markdown_to_html(text: str) -> str:
         r'font-family:Consolas,monospace; font-size:13px; color:#c9d1d9;">\1</code>',
         text,
     )
+    text = _RE_LINK.sub(
+        r'<a href="\2" style="color:#5dade2; text-decoration:underline;">\1</a>',
+        text,
+    )
+    text = _RE_STRIKETHROUGH.sub(r"<del>\1</del>", text)
     text = _RE_BOLD_STAR.sub(r"<b>\1</b>", text)
     text = _RE_BOLD_UNDER.sub(r"<b>\1</b>", text)
     text = _RE_ITALIC_STAR.sub(r"<i>\1</i>", text)
@@ -253,13 +260,14 @@ def _build_message_html(role: str, content: str, time_str: str, streaming: bool 
         rendered = html.escape(content).replace("\n", "<br>")
         copy_link = f'<a href="action:copy:{msg_index}" style="color:#555; font-size:11px; text-decoration:none;">[kopieren]</a>'
         edit_link = f'<a href="action:edit:{msg_index}" style="color:#555; font-size:11px; text-decoration:none;">[bearbeiten]</a>'
+        delete_link = f'<a href="action:delete:{msg_index}" style="color:#555; font-size:11px; text-decoration:none;">[löschen]</a>'
         return (
             f'<div style="margin: 8px 0; padding: 12px 16px; '
             f'background-color: #0f3460; border-radius: 12px 12px 4px 12px; '
             f'max-width: 80%; margin-left: auto; text-align: right;">'
             f'<b style="color: #e94560;">Du</b><br>'
             f'<span style="color: #e0e0e0;">{rendered}</span>'
-            f'<div style="color: #666; font-size: 11px; margin-top: 4px;">{edit_link} {copy_link} {time_str}</div>'
+            f'<div style="color: #666; font-size: 11px; margin-top: 4px;">{edit_link} {copy_link} {delete_link} {time_str}</div>'
             f'</div>'
         )
     else:
@@ -271,13 +279,14 @@ def _build_message_html(role: str, content: str, time_str: str, streaming: bool 
             rendered = markdown_to_html(content)
             ki_label = '<b style="color: #53d769;">KI</b>'
         copy_link = f'<a href="action:copy:{msg_index}" style="color:#555; font-size:11px; text-decoration:none;">[kopieren]</a>'
+        delete_link = f'<a href="action:delete:{msg_index}" style="color:#555; font-size:11px; text-decoration:none;">[löschen]</a>'
         return (
             f'<div style="margin: 8px 0; padding: 12px 16px; '
             f'background-color: #1a1a2e; border-radius: 12px 12px 12px 4px; '
             f'max-width: 80%;">'
             f'{ki_label}<br>'
             f'<span style="color: #e0e0e0;">{rendered}</span>'
-            f'<div style="color: #666; font-size: 11px; margin-top: 4px;">{copy_link} {time_str}</div>'
+            f'<div style="color: #666; font-size: 11px; margin-top: 4px;">{copy_link} {delete_link} {time_str}</div>'
             f'</div>'
         )
 
@@ -378,7 +387,7 @@ class ModelPullDialog(QDialog):
         super().__init__(parent)
         self.client = client
         self.worker = None
-        self.setWindowTitle("Modell herunterladen")
+        self.setWindowTitle("Modelle verwalten")
         self.setMinimumWidth(450)
         self.setup_ui()
 
@@ -417,6 +426,19 @@ class ModelPullDialog(QDialog):
         btn_row.addWidget(self.pull_btn)
         layout.addLayout(btn_row)
 
+        # --- Installed models section ---
+        layout.addWidget(QLabel(""))
+        layout.addWidget(QLabel("Installierte Modelle:"))
+        delete_row = QHBoxLayout()
+        self.installed_combo = QComboBox()
+        self._refresh_installed()
+        delete_row.addWidget(self.installed_combo, 1)
+        self.delete_model_btn = QPushButton("Löschen")
+        self.delete_model_btn.setObjectName("danger")
+        self.delete_model_btn.clicked.connect(self._delete_model)
+        delete_row.addWidget(self.delete_model_btn)
+        layout.addLayout(delete_row)
+
     def start_pull(self):
         model = self.model_input.text().strip()
         if not model:
@@ -441,7 +463,34 @@ class ModelPullDialog(QDialog):
         if success:
             self.progress.setValue(100)
             self.status_label.setStyleSheet("color: #53d769;")
+            self._refresh_installed()
         else:
+            self.status_label.setStyleSheet("color: #e94560;")
+
+    def _refresh_installed(self):
+        self.installed_combo.clear()
+        models = self.client.list_models()
+        if models:
+            self.installed_combo.addItems(models)
+
+    def _delete_model(self):
+        model = self.installed_combo.currentText()
+        if not model:
+            return
+        reply = QMessageBox.question(
+            self, "Modell löschen",
+            f'Modell "{model}" wirklich löschen?',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        if self.client.delete_model(model):
+            self.status_label.setText(f"{model} gelöscht!")
+            self.status_label.setStyleSheet("color: #53d769;")
+            self._refresh_installed()
+        else:
+            self.status_label.setText(f"Konnte {model} nicht löschen!")
             self.status_label.setStyleSheet("color: #e94560;")
 
 
@@ -947,6 +996,9 @@ class MainWindow(QMainWindow):
 
     def _on_anchor_clicked(self, url: QUrl):
         href = url.toString()
+        if href.startswith("http://") or href.startswith("https://"):
+            QDesktopServices.openUrl(url)
+            return
         if not href.startswith("action:"):
             return
         parts = href.split(":")
@@ -967,6 +1019,25 @@ class MainWindow(QMainWindow):
             self.status_label.setText("In Zwischenablage kopiert!")
             self.status_label.setStyleSheet("color: #53d769;")
             QTimer.singleShot(2000, lambda: self.status_label.setText("Bereit"))
+        elif action == "delete":
+            if self.stream_worker and self.stream_worker.isRunning():
+                return
+            reply = QMessageBox.question(
+                self, "Nachricht löschen",
+                "Diese Nachricht wirklich löschen?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+            self.current_session.messages.pop(idx)
+            self._mark_dirty()
+            self._cached_history_html = ""
+            self.render_chat()
+            self._update_counters()
+            self._update_action_buttons()
+            row = self.session_list.currentRow()
+            self._update_session_list_item(row)
         elif action == "edit":
             if msg.role != "user":
                 return
@@ -1144,6 +1215,22 @@ class MainWindow(QMainWindow):
 
     # --- Chat rendering ---
 
+    def _build_chat_header(self) -> str:
+        """Build HTML header showing session info: date, model, system prompt."""
+        if not self.current_session:
+            return ""
+        s = self.current_session
+        date_str = s.created_at.strftime("%d.%m.%Y %H:%M")
+        prompt_preview = s.system_prompt[:80] + "..." if len(s.system_prompt) > 80 else s.system_prompt
+        prompt_escaped = html.escape(prompt_preview)
+        return (
+            f'<div style="border-bottom:1px solid #333; padding:8px 0 12px 0; margin-bottom:12px;">'
+            f'<span style="color:#e94560; font-weight:bold;">{html.escape(s.name)}</span>'
+            f' <span style="color:#666; font-size:12px;">| {date_str} | {html.escape(s.model)}</span><br>'
+            f'<span style="color:#555; font-size:12px;">System: {prompt_escaped}</span>'
+            f'</div>'
+        )
+
     def _build_history_html(self) -> str:
         if not self.current_session or not self.current_session.messages:
             return ""
@@ -1159,8 +1246,10 @@ class MainWindow(QMainWindow):
             self._cached_history_html = ""
             return
         self._cached_history_html = self._build_history_html()
+        header = self._build_chat_header()
         self.chat_display.setHtml(
             '<div style="padding: 16px; font-family: Segoe UI, Arial, sans-serif;">'
+            + header
             + self._cached_history_html
             + '</div>'
         )
@@ -1177,8 +1266,10 @@ class MainWindow(QMainWindow):
         streaming_text = "".join(self._streaming_chunks)
         time_str = datetime.now().strftime("%H:%M")
         streaming_html = _build_message_html("assistant", streaming_text, time_str, streaming=True)
+        header = self._build_chat_header()
         self.chat_display.setHtml(
             '<div style="padding: 16px; font-family: Segoe UI, Arial, sans-serif;">'
+            + header
             + self._cached_history_html
             + streaming_html
             + '</div>'
@@ -1194,6 +1285,13 @@ class MainWindow(QMainWindow):
         if self._pending_tokens:
             self._pending_tokens = False
             self._render_with_streaming()
+            # Live tokens/sec during streaming
+            token_count = len(self._streaming_chunks)
+            elapsed = time.monotonic() - self._stream_start_time
+            if elapsed > 0.5:
+                tps = token_count / elapsed
+                self.status_label.setText(f"KI schreibt... | {token_count} tokens | {tps:.0f} t/s")
+                self.status_label.setStyleSheet("color: #e94560;")
 
     def _update_counters(self):
         """Update token, word, and character counters."""
@@ -1290,6 +1388,7 @@ class MainWindow(QMainWindow):
     def on_stream_done(self, full_response: str):
         self._render_timer.stop()
         elapsed = time.monotonic() - self._stream_start_time
+        token_count = len(self._streaming_chunks)
         if self.current_session and full_response:
             self.current_session.messages.append(
                 Message(role="assistant", content=full_response)
@@ -1302,7 +1401,11 @@ class MainWindow(QMainWindow):
         row = self.session_list.currentRow()
         self._update_session_list_item(row)
         self._reset_input_state()
-        self.status_label.setText(f"Bereit | Antwort in {elapsed:.1f}s")
+        if token_count > 0 and elapsed > 0:
+            tps = token_count / elapsed
+            self.status_label.setText(f"Bereit | {token_count} tokens in {elapsed:.1f}s ({tps:.0f} t/s)")
+        else:
+            self.status_label.setText(f"Bereit | Antwort in {elapsed:.1f}s")
         self.status_label.setStyleSheet("color: #53d769;")
         # Flash title if window not focused
         if not self.isActiveWindow():
@@ -1321,6 +1424,8 @@ class MainWindow(QMainWindow):
         row = self.session_list.currentRow()
         self._update_session_list_item(row)
         self._reset_input_state()
+        self.status_label.setText(f"Fehler: {error[:60]}")
+        self.status_label.setStyleSheet("color: #e94560;")
 
     def stop_streaming(self):
         if not self.stream_worker or not self.stream_worker.isRunning():
@@ -1340,16 +1445,15 @@ class MainWindow(QMainWindow):
         row = self.session_list.currentRow()
         self._update_session_list_item(row)
         self._reset_input_state()
+        self.status_label.setText("Gestoppt")
+        self.status_label.setStyleSheet("color: #f39c12;")
 
     def _reset_input_state(self):
         self.send_btn.setVisible(True)
         self.stop_btn.setVisible(False)
+        self.send_btn.setEnabled(self._ollama_connected)
         self.input_field.setEnabled(True)
         self.input_field.setFocus()
-        # Only set "Bereit" if not overridden by on_stream_done
-        if "Antwort in" not in self.status_label.text():
-            self.status_label.setText("Bereit")
-            self.status_label.setStyleSheet("color: #53d769;")
 
     # --- Regenerate, copy, edit ---
 
@@ -1450,4 +1554,5 @@ class MainWindow(QMainWindow):
         if self.stream_worker and self.stream_worker.isRunning():
             self.stream_worker.stop()
             self.stream_worker.wait(2000)
+        self.client.session.close()
         event.accept()

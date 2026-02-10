@@ -48,28 +48,33 @@ class OllamaClient:
                 "temperature": temperature,
             },
         }
+        r = self.session.post(
+            f"{self.base_url}/api/chat",
+            json=payload,
+            stream=True,
+            timeout=(10, 300),
+        )
+        r.raise_for_status()
+        for line in r.iter_lines():
+            if line:
+                chunk = json.loads(line)
+                token = chunk.get("message", {}).get("content", "")
+                if token:
+                    yield token
+                if chunk.get("done"):
+                    break
+
+    def delete_model(self, model: str) -> bool:
+        """Delete a model from Ollama."""
         try:
-            r = self.session.post(
-                f"{self.base_url}/api/chat",
-                json=payload,
-                stream=True,
-                timeout=(10, 300),
+            r = self.session.delete(
+                f"{self.base_url}/api/delete",
+                json={"name": model},
+                timeout=10,
             )
-            r.raise_for_status()
-            for line in r.iter_lines():
-                if line:
-                    chunk = json.loads(line)
-                    token = chunk.get("message", {}).get("content", "")
-                    if token:
-                        yield token
-                    if chunk.get("done"):
-                        break
-        except requests.ConnectionError:
-            yield "\n\n[FEHLER] Keine Verbindung zu Ollama. Starte Ollama mit: ollama serve"
-        except requests.Timeout:
-            yield "\n\n[FEHLER] Timeout - Ollama antwortet nicht."
-        except Exception as e:
-            yield f"\n\n[FEHLER] {e}"
+            return r.status_code == 200
+        except Exception:
+            return False
 
     def pull_model(self, model: str) -> Generator[dict, None, None]:
         """Pull/download a model with progress updates."""

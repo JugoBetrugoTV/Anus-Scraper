@@ -2,6 +2,7 @@
 
 import sys
 import logging
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from PyQt6.QtWidgets import QApplication
@@ -16,7 +17,10 @@ def setup_logging():
         level=logging.DEBUG,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         handlers=[
-            logging.FileHandler(log_dir / "chat.log", encoding="utf-8"),
+            RotatingFileHandler(
+                log_dir / "chat.log", encoding="utf-8",
+                maxBytes=5 * 1024 * 1024, backupCount=3,
+            ),
             logging.StreamHandler(),
         ],
     )
