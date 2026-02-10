@@ -24,7 +24,7 @@ echo.
 :: ============================================
 :: Schritt 1: Portable Python bereitstellen
 :: ============================================
-echo [1/4] Suche Python...
+echo [1/5] Suche Python...
 
 if exist "%PYPYTHON%" (
     echo  [OK] Portables Python gefunden
@@ -92,7 +92,7 @@ echo  [OK] Portable Python %PYVERSION% bereit!
 :: ============================================
 :: Schritt 2: Ollama pruefen
 :: ============================================
-echo [2/4] Pruefe Ollama...
+echo [2/5] Pruefe Ollama...
 
 where ollama >nul 2>&1
 if %errorlevel%==0 (
@@ -126,10 +126,32 @@ echo  [OK] Ollama installiert
 
 :ollama_ready
 
+:: Ollama Server starten falls nicht laeuft
+powershell -NoProfile -Command "try { Invoke-WebRequest -Uri 'http://localhost:11434/api/tags' -UseBasicParsing -TimeoutSec 2 | Out-Null; exit 0 } catch { exit 1 }" >nul 2>&1
+if %errorlevel%==0 goto ollama_running
+
+echo  [*] Starte Ollama Server...
+start "" /B ollama serve >nul 2>&1
+
+:: Warten bis Server bereit ist
+set "WAIT=0"
+:wait_ollama
+if %WAIT% geq 15 (
+    echo  [!] Ollama Server startet nicht - starte App trotzdem...
+    goto ollama_running
+)
+timeout /t 1 /nobreak >nul
+set /a WAIT+=1
+powershell -NoProfile -Command "try { Invoke-WebRequest -Uri 'http://localhost:11434/api/tags' -UseBasicParsing -TimeoutSec 1 | Out-Null; exit 0 } catch { exit 1 }" >nul 2>&1
+if %errorlevel% neq 0 goto wait_ollama
+echo  [OK] Ollama Server laeuft
+
+:ollama_running
+
 :: ============================================
 :: Schritt 3: Dependencies installieren
 :: ============================================
-echo [3/4] Pruefe Dependencies...
+echo [3/5] Pruefe Dependencies...
 
 "%PYPYTHON%" -c "import PyQt6" >nul 2>&1
 if %errorlevel%==0 goto deps_ok
@@ -151,9 +173,49 @@ echo  [OK] Alle Pakete vorhanden
 :deps_done
 
 :: ============================================
-:: Schritt 4: App starten
+:: Schritt 4: KI-Modell pruefen
 :: ============================================
-echo [4/4] Starte KI Chat...
+echo [4/5] Pruefe KI-Modell...
+
+set "DEFAULT_MODEL=qwen2.5-coder:32b"
+
+:: Pruefen ob Modell schon vorhanden
+ollama list 2>nul | findstr /i "qwen2.5-coder:32b" >nul 2>&1
+if %errorlevel%==0 (
+    echo  [OK] %DEFAULT_MODEL% ist vorhanden
+    goto model_ready
+)
+
+echo.
+echo  ========================================
+echo  Das Standard-Modell %DEFAULT_MODEL%
+echo  ist noch nicht heruntergeladen.
+echo  Download-Groesse: ca. 20 GB
+echo  ========================================
+echo.
+echo  Druecke eine beliebige Taste um den
+echo  Download zu starten, oder schliesse
+echo  das Fenster zum Abbrechen.
+echo.
+pause
+
+echo.
+echo  [*] Lade %DEFAULT_MODEL% herunter...
+echo  [*] Das kann je nach Leitung dauern...
+echo.
+ollama pull %DEFAULT_MODEL%
+if %errorlevel% neq 0 (
+    echo  [!] Download fehlgeschlagen - du kannst das Modell spaeter in der App laden.
+    goto model_ready
+)
+echo  [OK] %DEFAULT_MODEL% bereit!
+
+:model_ready
+
+:: ============================================
+:: Schritt 5: App starten
+:: ============================================
+echo [5/5] Starte KI Chat...
 echo.
 echo  ========================================
 echo    App startet... Viel Spass!
