@@ -10,8 +10,8 @@ from app.gui import MainWindow, DARK_STYLE
 
 
 def setup_logging():
-    log_dir = Path.home() / "KIChat_debug"
-    log_dir.mkdir(exist_ok=True)
+    log_dir = Path.home() / ".ki-chat" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
     logging.basicConfig(
         level=logging.DEBUG,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",

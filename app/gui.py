@@ -8,11 +8,13 @@ from pathlib import Path
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
+    QApplication,
     QComboBox,
     QDialog,
     QDoubleSpinBox,
     QFileDialog,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QLineEdit,
     QMainWindow,
@@ -44,6 +46,10 @@ _RE_H2 = re.compile(r"^## (.+)$", re.MULTILINE)
 _RE_H1 = re.compile(r"^# (.+)$", re.MULTILINE)
 _RE_BULLET = re.compile(r"^[*\-] (.+)$", re.MULTILINE)
 _RE_NUMLIST = re.compile(r"^(\d+)\. (.+)$", re.MULTILINE)
+
+# Context window limits (in estimated tokens)
+CONTEXT_SOFT_LIMIT = 6000
+CONTEXT_HARD_LIMIT = 8000
 
 DARK_STYLE = """
 QMainWindow, QDialog {
@@ -181,84 +187,73 @@ QProgressBar::chunk {
 """
 
 
+def _replace_code_block(m: re.Match) -> str:
+    lang = m.group(1) or ""
+    code = m.group(2)
+    return (
+        f'<div style="background-color:#0d1117; border:1px solid #333; '
+        f'border-radius:6px; padding:10px; margin:6px 0; '
+        f'font-family:Consolas,monospace; font-size:13px; '
+        f'white-space:pre-wrap; color:#c9d1d9;">'
+        f'<span style="color:#666; font-size:11px;">{lang}</span><br>'
+        f'{code}</div>'
+    )
+
+
 def markdown_to_html(text: str) -> str:
     """Convert basic markdown to HTML for chat display."""
     text = html.escape(text)
-
-    # Code blocks
-    def _replace_code_block(m):
-        lang = m.group(1) or ""
-        code = m.group(2)
-        return (
-            f'<div style="background-color:#0d1117; border:1px solid #333; '
-            f'border-radius:6px; padding:10px; margin:6px 0; '
-            f'font-family:Consolas,monospace; font-size:13px; '
-            f'white-space:pre-wrap; color:#c9d1d9;">'
-            f'<span style="color:#666; font-size:11px;">{lang}</span><br>'
-            f'{code}</div>'
-        )
-
     text = _RE_CODE_BLOCK.sub(_replace_code_block, text)
-
-    # Inline code
     text = _RE_INLINE_CODE.sub(
         r'<code style="background-color:#0d1117; padding:2px 6px; border-radius:3px; '
         r'font-family:Consolas,monospace; font-size:13px; color:#c9d1d9;">\1</code>',
         text,
     )
-
     text = _RE_BOLD_STAR.sub(r"<b>\1</b>", text)
     text = _RE_BOLD_UNDER.sub(r"<b>\1</b>", text)
     text = _RE_ITALIC_STAR.sub(r"<i>\1</i>", text)
     text = _RE_ITALIC_UNDER.sub(r"<i>\1</i>", text)
-
     text = _RE_H3.sub(r'<b style="font-size:15px; color:#e94560;">\1</b>', text)
     text = _RE_H2.sub(r'<b style="font-size:17px; color:#e94560;">\1</b>', text)
     text = _RE_H1.sub(r'<b style="font-size:19px; color:#e94560;">\1</b>', text)
-
     text = _RE_BULLET.sub(r"&bull; \1", text)
     text = _RE_NUMLIST.sub(r"\1. \2", text)
-
     text = text.replace("\n", "<br>")
     return text
 
 
 def _build_message_html(role: str, content: str, time_str: str, streaming: bool = False, msg_index: int = -1) -> str:
-    """Build HTML for a single chat message."""
+    """Build HTML for a single chat message with clickable copy links."""
     if role == "user":
         rendered = html.escape(content).replace("\n", "<br>")
-        copy_btn = (
-            f'<span class="copy-btn" data-idx="{msg_index}" '
-            f'style="color:#666; font-size:11px; cursor:pointer; float:left;">'
-            f'[Kopieren]</span>'
-        )
+        copy_link = f'<a href="copy:{msg_index}" style="color:#555; font-size:11px; text-decoration:none;">[kopieren]</a>'
+        edit_link = f'<a href="edit:{msg_index}" style="color:#555; font-size:11px; text-decoration:none;">[bearbeiten]</a>'
         return (
             f'<div style="margin: 8px 0; padding: 12px 16px; '
             f'background-color: #0f3460; border-radius: 12px 12px 4px 12px; '
             f'max-width: 80%; margin-left: auto; text-align: right;">'
             f'<b style="color: #e94560;">Du</b><br>'
             f'<span style="color: #e0e0e0;">{rendered}</span>'
-            f'<div style="color: #666; font-size: 11px; margin-top: 4px;">{copy_btn} {time_str}</div>'
+            f'<div style="color: #666; font-size: 11px; margin-top: 4px;">{edit_link} {copy_link} {time_str}</div>'
             f'</div>'
         )
     else:
-        rendered = markdown_to_html(content)
-        ki_label = '<b style="color: #53d769;">KI</b>'
         if streaming:
-            ki_label += '<span style="color: #e94560;"> (schreibt...)</span>'
+            # Skip markdown during streaming for performance - just escape + newlines
+            rendered = html.escape(content).replace("\n", "<br>")
             rendered += '<span style="color:#e94560;">|</span>'
-        copy_btn = (
-            f'<span class="copy-btn" data-idx="{msg_index}" '
-            f'style="color:#666; font-size:11px; cursor:pointer;">'
-            f'[Kopieren]</span>'
-        )
+            ki_label = '<b style="color: #53d769;">KI</b><span style="color: #e94560;"> (schreibt...)</span>'
+        else:
+            rendered = markdown_to_html(content)
+            ki_label = '<b style="color: #53d769;">KI</b>'
+        copy_link = f'<a href="copy:{msg_index}" style="color:#555; font-size:11px; text-decoration:none;">[kopieren]</a>'
         return (
             f'<div style="margin: 8px 0; padding: 12px 16px; '
             f'background-color: #1a1a2e; border-radius: 12px 12px 12px 4px; '
             f'max-width: 80%;">'
             f'{ki_label}<br>'
             f'<span style="color: #e0e0e0;">{rendered}</span>'
-            f'<div style="color: #666; font-size: 11px; margin-top: 4px;">{copy_btn} {time_str}</div>'
+            f'<div style="color: #666; font-size: 11px; margin-top: 4px;">{copy_link} {time_str}</div>'
             f'</div>'
         )
 
@@ -279,7 +274,7 @@ WELCOME_HTML = """
 
 class OllamaCheckWorker(QThread):
     """Non-blocking Ollama connectivity check."""
-    result = pyqtSignal(bool, int)  # available, model_count
+    result = pyqtSignal(bool, int)
 
     def __init__(self, client: OllamaClient):
         super().__init__()
@@ -440,14 +435,12 @@ class SettingsDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.setSpacing(12)
 
-        # Ollama URL
         layout.addWidget(QLabel("Ollama URL:"))
         self.url_input = QLineEdit()
         self.url_input.setText(self.client.base_url)
         self.url_input.setPlaceholderText(DEFAULT_BASE_URL)
         layout.addWidget(self.url_input)
 
-        # Model selection
         layout.addWidget(QLabel("Modell:"))
         model_row = QHBoxLayout()
         self.model_combo = QComboBox()
@@ -470,7 +463,6 @@ class SettingsDialog(QDialog):
         model_row.addWidget(btn_refresh)
         layout.addLayout(model_row)
 
-        # Temperature
         layout.addWidget(QLabel("Temperatur (Kreativität):"))
         self.temp_spin = QDoubleSpinBox()
         self.temp_spin.setRange(0.0, 2.0)
@@ -478,14 +470,12 @@ class SettingsDialog(QDialog):
         self.temp_spin.setValue(self.session.temperature)
         layout.addWidget(self.temp_spin)
 
-        # System prompt
         layout.addWidget(QLabel("System-Prompt:"))
         self.system_edit = QPlainTextEdit()
         self.system_edit.setPlainText(self.session.system_prompt)
         self.system_edit.setMinimumHeight(100)
         layout.addWidget(self.system_edit)
 
-        # Presets
         layout.addWidget(QLabel("Presets:"))
         presets_row = QHBoxLayout()
         presets = {
@@ -509,7 +499,6 @@ class SettingsDialog(QDialog):
             presets_row.addWidget(btn)
         layout.addLayout(presets_row)
 
-        # Buttons
         btn_row = QHBoxLayout()
         btn_save = QPushButton("Speichern")
         btn_save.clicked.connect(self.save_and_close)
@@ -541,7 +530,6 @@ class SettingsDialog(QDialog):
         url = self.url_input.text().strip()
         if url:
             self.client.set_base_url(url)
-            # Persist URL
             settings = load_settings()
             settings["ollama_url"] = url
             save_settings(settings)
@@ -556,7 +544,6 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        # Load persisted settings
         settings = load_settings()
         base_url = settings.get("ollama_url", DEFAULT_BASE_URL)
         self.client = OllamaClient(base_url)
@@ -566,22 +553,44 @@ class MainWindow(QMainWindow):
         self.stream_worker: StreamWorker | None = None
         self._streaming_chunks: list[str] = []
         self._cached_history_html: str = ""
+
+        # Batched streaming render timer
         self._render_timer = QTimer()
         self._render_timer.setInterval(50)
         self._render_timer.timeout.connect(self._flush_streaming_render)
         self._pending_tokens = False
 
+        # Debounced search timer
+        self._search_timer = QTimer()
+        self._search_timer.setSingleShot(True)
+        self._search_timer.setInterval(200)
+        self._search_timer.timeout.connect(self._do_filter_sessions)
+        self._search_query = ""
+
         self.setWindowTitle("Unzensierter KI Chat")
         self.setMinimumSize(900, 650)
-        self.resize(1100, 750)
 
         self.setup_ui()
         self.setup_shortcuts()
         self.load_sessions()
+        self._restore_geometry(settings)
         self.check_ollama_async()
 
+    def _restore_geometry(self, settings: dict):
+        geo = settings.get("window_geometry")
+        if geo:
+            self.resize(geo.get("w", 1100), geo.get("h", 750))
+            self.move(geo.get("x", 100), geo.get("y", 100))
+        else:
+            self.resize(1100, 750)
+
+    def _save_geometry(self):
+        settings = load_settings()
+        g = self.geometry()
+        settings["window_geometry"] = {"x": g.x(), "y": g.y(), "w": g.width(), "h": g.height()}
+        save_settings(settings)
+
     def check_ollama_async(self):
-        """Non-blocking Ollama check via background thread."""
         self.status_label.setText("Verbinde mit Ollama...")
         self.status_label.setStyleSheet("color: #666;")
         self._check_worker = OllamaCheckWorker(self.client)
@@ -613,7 +622,7 @@ class MainWindow(QMainWindow):
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # --- Left sidebar ---
+        # --- Sidebar ---
         sidebar = QWidget()
         sidebar.setMaximumWidth(260)
         sidebar.setMinimumWidth(200)
@@ -630,10 +639,9 @@ class MainWindow(QMainWindow):
         btn_new.clicked.connect(self.new_session)
         sidebar_layout.addWidget(btn_new)
 
-        # Search bar
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Chats durchsuchen...")
-        self.search_input.textChanged.connect(self.filter_sessions)
+        self.search_input.textChanged.connect(self._on_search_changed)
         sidebar_layout.addWidget(self.search_input)
 
         self.session_list = QListWidget()
@@ -655,7 +663,6 @@ class MainWindow(QMainWindow):
         btn_export_txt.setObjectName("secondary")
         btn_export_txt.clicked.connect(lambda: self.export_chat("txt"))
         export_row.addWidget(btn_export_txt)
-
         btn_export_json = QPushButton("Export .json")
         btn_export_json.setObjectName("secondary")
         btn_export_json.clicked.connect(lambda: self.export_chat("json"))
@@ -667,19 +674,18 @@ class MainWindow(QMainWindow):
         btn_delete.clicked.connect(self.delete_session)
         sidebar_layout.addWidget(btn_delete)
 
-        # --- Right chat area ---
+        # --- Chat area ---
         chat_area = QWidget()
         chat_layout = QVBoxLayout(chat_area)
         chat_layout.setContentsMargins(0, 0, 0, 0)
         chat_layout.setSpacing(0)
 
-        # Chat display
         self.chat_display = QTextEdit()
         self.chat_display.setReadOnly(True)
         self.chat_display.setHtml(WELCOME_HTML)
         chat_layout.addWidget(self.chat_display, 1)
 
-        # Action buttons row (regenerate, copy last)
+        # Action buttons
         action_bar = QWidget()
         action_bar.setStyleSheet("background-color: #1a1a2e;")
         action_layout = QHBoxLayout(action_bar)
@@ -698,10 +704,16 @@ class MainWindow(QMainWindow):
         self.copy_last_btn.setVisible(False)
         action_layout.addWidget(self.copy_last_btn)
 
+        self.edit_last_btn = QPushButton("Letzte Frage bearbeiten")
+        self.edit_last_btn.setObjectName("small")
+        self.edit_last_btn.clicked.connect(self.edit_last_user_message)
+        self.edit_last_btn.setVisible(False)
+        action_layout.addWidget(self.edit_last_btn)
+
         action_layout.addStretch()
         chat_layout.addWidget(action_bar)
 
-        # Input area
+        # Input
         input_container = QWidget()
         input_container.setStyleSheet(
             "background-color: #1a1a2e; border-top: 1px solid #0f3460;"
@@ -755,7 +767,6 @@ class MainWindow(QMainWindow):
         splitter.addWidget(sidebar)
         splitter.addWidget(chat_area)
         splitter.setSizes([240, 860])
-
         main_layout.addWidget(splitter)
 
     def eventFilter(self, obj, event):
@@ -817,18 +828,22 @@ class MainWindow(QMainWindow):
         if not self.sessions:
             self.new_session()
         else:
-            new_row = min(row, len(self.sessions) - 1)
-            self.session_list.setCurrentRow(new_row)
+            self.session_list.setCurrentRow(min(row, len(self.sessions) - 1))
 
-    def filter_sessions(self, query: str):
-        query = query.lower().strip()
+    # --- Debounced search ---
+
+    def _on_search_changed(self, text: str):
+        self._search_query = text
+        self._search_timer.start()
+
+    def _do_filter_sessions(self):
+        query = self._search_query.lower().strip()
         for i in range(self.session_list.count()):
             item = self.session_list.item(i)
             if not query:
                 item.setHidden(False)
             else:
                 name = self.sessions[i].name.lower() if i < len(self.sessions) else ""
-                # Also search in message content
                 content_match = any(
                     query in m.content.lower()
                     for m in self.sessions[i].messages
@@ -838,7 +853,6 @@ class MainWindow(QMainWindow):
     # --- Chat rendering ---
 
     def _build_history_html(self) -> str:
-        """Build HTML for all committed messages (cacheable)."""
         if not self.current_session or not self.current_session.messages:
             return ""
         parts = []
@@ -853,12 +867,11 @@ class MainWindow(QMainWindow):
             self._cached_history_html = ""
             return
         self._cached_history_html = self._build_history_html()
-        full = (
+        self.chat_display.setHtml(
             '<div style="padding: 16px; font-family: Segoe UI, Arial, sans-serif;">'
             + self._cached_history_html
             + '</div>'
         )
-        self.chat_display.setHtml(full)
         self.scroll_to_bottom()
 
     def scroll_to_bottom(self):
@@ -866,19 +879,17 @@ class MainWindow(QMainWindow):
         sb.setValue(sb.maximum())
 
     def _render_with_streaming(self):
-        """Render cached history + live streaming bubble."""
         if not self.current_session:
             return
         streaming_text = "".join(self._streaming_chunks)
         time_str = datetime.now().strftime("%H:%M")
         streaming_html = _build_message_html("assistant", streaming_text, time_str, streaming=True)
-        full = (
+        self.chat_display.setHtml(
             '<div style="padding: 16px; font-family: Segoe UI, Arial, sans-serif;">'
             + self._cached_history_html
             + streaming_html
             + '</div>'
         )
-        self.chat_display.setHtml(full)
         self.scroll_to_bottom()
 
     def append_streaming_token(self, token: str):
@@ -894,9 +905,9 @@ class MainWindow(QMainWindow):
         if self.current_session:
             tokens = self.current_session.estimate_tokens()
             self.token_label.setText(f"~{tokens:,} Tokens")
-            if tokens > 6000:
+            if tokens > CONTEXT_HARD_LIMIT:
                 self.token_label.setStyleSheet("color: #e94560; font-size: 12px;")
-            elif tokens > 3000:
+            elif tokens > CONTEXT_SOFT_LIMIT:
                 self.token_label.setStyleSheet("color: #f39c12; font-size: 12px;")
             else:
                 self.token_label.setStyleSheet("color: #666; font-size: 12px;")
@@ -904,13 +915,32 @@ class MainWindow(QMainWindow):
             self.token_label.setText("")
 
     def _update_action_buttons(self):
-        has_assistant_msg = (
-            self.current_session
-            and self.current_session.messages
-            and any(m.role == "assistant" for m in self.current_session.messages)
-        )
-        self.regen_btn.setVisible(bool(has_assistant_msg))
-        self.copy_last_btn.setVisible(bool(has_assistant_msg))
+        has_msgs = self.current_session and self.current_session.messages
+        has_assistant = has_msgs and any(m.role == "assistant" for m in self.current_session.messages)
+        has_user = has_msgs and any(m.role == "user" for m in self.current_session.messages)
+        is_streaming = self.stream_worker and self.stream_worker.isRunning()
+        self.regen_btn.setVisible(bool(has_assistant) and not is_streaming)
+        self.copy_last_btn.setVisible(bool(has_assistant) and not is_streaming)
+        self.edit_last_btn.setVisible(bool(has_user) and not is_streaming)
+
+    # --- Context auto-trimming ---
+
+    def _trim_context_if_needed(self):
+        """Remove oldest message pairs if context exceeds hard limit."""
+        if not self.current_session:
+            return
+        while (
+            self.current_session.estimate_tokens() > CONTEXT_HARD_LIMIT
+            and len(self.current_session.messages) > 2
+        ):
+            self.current_session.messages.pop(0)
+            # Try to keep pairs aligned: if first msg is now assistant, remove it too
+            if (
+                self.current_session.messages
+                and self.current_session.messages[0].role == "assistant"
+            ):
+                self.current_session.messages.pop(0)
+        self.update_token_counter()
 
     # --- Sending and receiving ---
 
@@ -923,6 +953,9 @@ class MainWindow(QMainWindow):
 
         self.current_session.messages.append(Message(role="user", content=text))
         self.input_field.clear()
+
+        # Auto-trim before sending
+        self._trim_context_if_needed()
         self.render_chat()
 
         if len(self.current_session.messages) == 1:
@@ -937,12 +970,12 @@ class MainWindow(QMainWindow):
     def _start_streaming(self):
         self._streaming_chunks = []
         self._pending_tokens = False
-        # Cache history HTML before streaming starts
         self._cached_history_html = self._build_history_html()
         self.send_btn.setVisible(False)
         self.stop_btn.setVisible(True)
         self.regen_btn.setVisible(False)
         self.copy_last_btn.setVisible(False)
+        self.edit_last_btn.setVisible(False)
         self.input_field.setEnabled(False)
         self.status_label.setText("KI denkt nach...")
         self.status_label.setStyleSheet("color: #e94560;")
@@ -1001,14 +1034,13 @@ class MainWindow(QMainWindow):
         self.status_label.setText("Bereit")
         self.status_label.setStyleSheet("color: #53d769;")
 
-    # --- Regenerate and copy ---
+    # --- Regenerate, copy, edit ---
 
     def regenerate_response(self):
         if not self.current_session or not self.current_session.messages:
             return
         if self.stream_worker and self.stream_worker.isRunning():
             return
-        # Remove last assistant message
         while self.current_session.messages and self.current_session.messages[-1].role == "assistant":
             self.current_session.messages.pop()
         if not self.current_session.messages:
@@ -1019,10 +1051,8 @@ class MainWindow(QMainWindow):
     def copy_last_response(self):
         if not self.current_session:
             return
-        # Find last assistant message
         for msg in reversed(self.current_session.messages):
             if msg.role == "assistant":
-                from PyQt6.QtWidgets import QApplication
                 clipboard = QApplication.clipboard()
                 if clipboard:
                     clipboard.setText(msg.content)
@@ -1030,6 +1060,33 @@ class MainWindow(QMainWindow):
                 self.status_label.setStyleSheet("color: #53d769;")
                 QTimer.singleShot(2000, lambda: self.status_label.setText("Bereit"))
                 break
+
+    def edit_last_user_message(self):
+        """Edit the last user message and regenerate."""
+        if not self.current_session or not self.current_session.messages:
+            return
+        if self.stream_worker and self.stream_worker.isRunning():
+            return
+        # Find last user message
+        last_user_idx = -1
+        for i in range(len(self.current_session.messages) - 1, -1, -1):
+            if self.current_session.messages[i].role == "user":
+                last_user_idx = i
+                break
+        if last_user_idx < 0:
+            return
+        old_text = self.current_session.messages[last_user_idx].content
+        new_text, ok = QInputDialog.getMultiLineText(
+            self, "Nachricht bearbeiten", "Nachricht:", old_text
+        )
+        if not ok or new_text.strip() == old_text:
+            return
+        # Remove everything from last_user_idx onwards
+        self.current_session.messages = self.current_session.messages[:last_user_idx]
+        # Add edited message
+        self.current_session.messages.append(Message(role="user", content=new_text.strip()))
+        self.render_chat()
+        self._start_streaming()
 
     # --- Dialogs ---
 
@@ -1064,6 +1121,7 @@ class MainWindow(QMainWindow):
                 self.current_session.export_json(Path(path))
 
     def closeEvent(self, event):
+        self._save_geometry()
         for session in self.sessions:
             if session.messages:
                 session.save()
