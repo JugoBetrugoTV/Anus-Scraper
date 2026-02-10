@@ -11,6 +11,10 @@ set "PYZIP=python-%PYVERSION%-embed-amd64.zip"
 set "PYURL=https://www.python.org/ftp/python/%PYVERSION%/%PYZIP%"
 set "GETPIPURL=https://bootstrap.pypa.io/get-pip.py"
 
+:: Modelle neben dem Bot speichern (gleiches Laufwerk)
+set "OLLAMA_MODELS=%BASEDIR%ollama_models"
+if not exist "%OLLAMA_MODELS%" mkdir "%OLLAMA_MODELS%"
+
 echo.
 echo  ========================================
 echo     Unzensierter KI Chat - Starter

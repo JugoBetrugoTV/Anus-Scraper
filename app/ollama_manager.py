@@ -100,8 +100,10 @@ class OllamaManager:
             if system == "Windows":
                 kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
 
+            env = os.environ.copy()
             self._process = subprocess.Popen(
                 [ollama_path, "serve"],
+                env=env,
                 **kwargs,
             )
             logger.info("Started ollama serve (PID %d)", self._process.pid)

@@ -33,6 +33,15 @@ def main():
     logger = logging.getLogger(__name__)
     logger.info("Starting Unzensierter KI Chat...")
 
+    # Set OLLAMA_MODELS to store models next to the app (same drive)
+    import os
+    app_dir = Path(__file__).resolve().parent
+    models_dir = app_dir / "ollama_models"
+    if not os.environ.get("OLLAMA_MODELS"):
+        models_dir.mkdir(exist_ok=True)
+        os.environ["OLLAMA_MODELS"] = str(models_dir)
+        logger.info("OLLAMA_MODELS set to: %s", models_dir)
+
     # Initialize Ollama manager with configured URL
     settings = load_settings()
     base_url = settings.get("ollama_url", "http://localhost:11434")

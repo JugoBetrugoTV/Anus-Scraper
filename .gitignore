@@ -19,4 +19,5 @@ ENV/
 *.swp
 *.swo
 python/
+ollama_models/
 *.zip
