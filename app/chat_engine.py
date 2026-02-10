@@ -81,6 +81,7 @@ class OllamaClient:
 
     def pull_model(self, model: str) -> Generator[dict, None, None]:
         """Pull/download a model with progress updates."""
+        r = None
         try:
             r = self.session.post(
                 f"{self.base_url}/api/pull",
@@ -95,3 +96,6 @@ class OllamaClient:
                     yield chunk
         except Exception as e:
             yield {"status": f"[FEHLER] {e}", "error": True}
+        finally:
+            if r is not None:
+                r.close()

@@ -1093,13 +1093,6 @@ class MainWindow(QMainWindow):
         if splitter_pos:
             self._splitter.setSizes(splitter_pos)
 
-    def _save_geometry(self):
-        settings = load_settings()
-        g = self.geometry()
-        settings["window_geometry"] = {"x": g.x(), "y": g.y(), "w": g.width(), "h": g.height()}
-        settings["splitter_sizes"] = self._splitter.sizes()
-        save_settings(settings)
-
     def _mark_dirty(self, session: ChatSession | None = None):
         """Mark a session as needing save on next auto-save cycle."""
         s = session or self.current_session
@@ -1240,6 +1233,8 @@ class MainWindow(QMainWindow):
         self.session_list = QListWidget()
         self.session_list.currentRowChanged.connect(self.switch_session)
         self.session_list.itemDoubleClicked.connect(self._rename_session)
+        self.session_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.session_list.customContextMenuRequested.connect(self._show_session_context_menu)
         sidebar_layout.addWidget(self.session_list, 1)
 
         btn_settings = QPushButton("Einstellungen")
@@ -1375,6 +1370,7 @@ class MainWindow(QMainWindow):
         self.input_field.setMinimumHeight(45)
         self.input_field.installEventFilter(self)
         self.input_field.textChanged.connect(self._adjust_input_height)
+        self.input_field.textChanged.connect(self._update_input_counter)
         input_layout.addWidget(self.input_field, 1)
 
         btn_col = QVBoxLayout()
@@ -1389,6 +1385,11 @@ class MainWindow(QMainWindow):
         self.stop_btn.setMinimumHeight(45)
         self.stop_btn.setVisible(False)
         btn_col.addWidget(self.stop_btn)
+
+        self.input_counter_label = QLabel("")
+        self.input_counter_label.setStyleSheet("color: #555; font-size: 11px;")
+        self.input_counter_label.setAlignment(Qt.AlignmentFlag.AlignRight)
+        btn_col.addWidget(self.input_counter_label)
 
         input_layout.addLayout(btn_col)
         chat_layout.addWidget(input_container)
@@ -1437,6 +1438,15 @@ class MainWindow(QMainWindow):
         line_height = self.input_field.fontMetrics().lineSpacing()
         new_height = min(100, max(45, line_count * line_height + 20))
         self.input_field.setFixedHeight(new_height)
+
+    def _update_input_counter(self):
+        text = self.input_field.toPlainText()
+        if text.strip():
+            words = len(text.split())
+            chars = len(text)
+            self.input_counter_label.setText(f"{words}W | {chars}Z")
+        else:
+            self.input_counter_label.setText("")
 
     # --- Auto-scroll toggle ---
 
@@ -1680,21 +1690,29 @@ class MainWindow(QMainWindow):
                 self._sort_sessions(idx)
                 return
             for s in self.sessions:
-                msg_count = len(s.messages)
-                label = f"{s.name}  ({msg_count})" if msg_count else s.name
-                self.session_list.addItem(QListWidgetItem(label))
+                self.session_list.addItem(QListWidgetItem(self._session_label(s)))
             self.session_list.setCurrentRow(len(self.sessions) - 1)
         else:
             self.new_session()
 
+    def _session_label(self, s: ChatSession) -> str:
+        msg_count = len(s.messages)
+        label = f"{s.name}  ({msg_count})" if msg_count else s.name
+        if s.messages:
+            last = s.messages[-1]
+            prefix = "Du: " if last.role == "user" else "KI: "
+            preview = last.content.replace("\n", " ")[:40]
+            label += f"\n{prefix}{preview}"
+        return label
+
     def _update_session_list_item(self, row: int):
         if 0 <= row < len(self.sessions):
             s = self.sessions[row]
-            msg_count = len(s.messages)
-            label = f"{s.name}  ({msg_count})" if msg_count else s.name
             item = self.session_list.item(row)
             if item:
-                item.setText(label)
+                item.setText(self._session_label(s))
+                if s.messages:
+                    item.setToolTip(s.messages[-1].content[:200])
 
     def new_session(self):
         name = f"Chat {len(self.sessions) + 1}"
@@ -1704,8 +1722,9 @@ class MainWindow(QMainWindow):
             session.system_prompt = self.current_session.system_prompt
             session.temperature = self.current_session.temperature
         self.sessions.append(session)
-        self.session_list.addItem(QListWidgetItem(name))
-        self.session_list.setCurrentRow(len(self.sessions) - 1)
+        self.current_session = session
+        # Re-sort to place new session correctly, then select it
+        self._sort_sessions(self.sort_combo.currentIndex())
 
     def switch_session(self, row):
         if 0 <= row < len(self.sessions):
@@ -1727,6 +1746,38 @@ class MainWindow(QMainWindow):
             self._update_counters()
             self._update_action_buttons()
             self._update_model_label()
+
+    def _show_session_context_menu(self, pos):
+        item = self.session_list.itemAt(pos)
+        if not item:
+            return
+        row = self.session_list.row(item)
+        if row < 0 or row >= len(self.sessions):
+            return
+        menu = QMenu(self)
+        menu.setStyleSheet("QMenu { background-color: #16213e; color: #e0e0e0; border: 1px solid #0f3460; }"
+                           "QMenu::item:selected { background-color: #e94560; }")
+        rename_action = menu.addAction("Umbenennen")
+        duplicate_action = menu.addAction("Duplizieren")
+        export_txt_action = menu.addAction("Export .txt")
+        export_json_action = menu.addAction("Export .json")
+        menu.addSeparator()
+        delete_action = menu.addAction("Löschen")
+        action = menu.exec(self.session_list.mapToGlobal(pos))
+        if action == rename_action:
+            self._rename_session(item)
+        elif action == duplicate_action:
+            self.session_list.setCurrentRow(row)
+            self.duplicate_session()
+        elif action == export_txt_action:
+            self.session_list.setCurrentRow(row)
+            self.export_chat("txt")
+        elif action == export_json_action:
+            self.session_list.setCurrentRow(row)
+            self.export_chat("json")
+        elif action == delete_action:
+            self.session_list.setCurrentRow(row)
+            self.delete_session()
 
     def _rename_session(self, item: QListWidgetItem):
         row = self.session_list.row(item)
@@ -1756,9 +1807,7 @@ class MainWindow(QMainWindow):
         ]
         new_session.save()
         self.sessions.append(new_session)
-        msg_count = len(new_session.messages)
-        label = f"{new_session.name}  ({msg_count})" if msg_count else new_session.name
-        self.session_list.addItem(QListWidgetItem(label))
+        self.session_list.addItem(QListWidgetItem(self._session_label(new_session)))
         self.session_list.setCurrentRow(len(self.sessions) - 1)
 
     def import_chat(self):
@@ -1772,9 +1821,7 @@ class MainWindow(QMainWindow):
             session.session_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
             session.save()
             self.sessions.append(session)
-            msg_count = len(session.messages)
-            label = f"{session.name}  ({msg_count})" if msg_count else session.name
-            self.session_list.addItem(QListWidgetItem(label))
+            self.session_list.addItem(QListWidgetItem(self._session_label(session)))
             self.session_list.setCurrentRow(len(self.sessions) - 1)
             self.status_label.setText(f"Chat \"{session.name}\" importiert!")
             self.status_label.setStyleSheet("color: #53d769;")
@@ -1863,9 +1910,7 @@ class MainWindow(QMainWindow):
         self.session_list.blockSignals(True)
         self.session_list.clear()
         for s in self.sessions:
-            msg_count = len(s.messages)
-            label = f"{s.name}  ({msg_count})" if msg_count else s.name
-            self.session_list.addItem(QListWidgetItem(label))
+            self.session_list.addItem(QListWidgetItem(self._session_label(s)))
         # Re-select current session or first one
         selected = False
         if current:
@@ -1915,7 +1960,17 @@ class MainWindow(QMainWindow):
         if not self.current_session or not self.current_session.messages:
             return ""
         parts = []
+        last_date = None
         for idx, msg in enumerate(self.current_session.messages):
+            msg_date = msg.timestamp.date()
+            if msg_date != last_date:
+                date_str = msg.timestamp.strftime("%d.%m.%Y")
+                parts.append(
+                    f'<div style="text-align:center; margin:12px 0 8px 0;">'
+                    f'<span style="background-color:#0f3460; color:#a0a0c0; font-size:11px; '
+                    f'padding:3px 12px; border-radius:10px;">{date_str}</span></div>'
+                )
+                last_date = msg_date
             time_str = msg.timestamp.strftime("%H:%M")
             parts.append(_build_message_html(msg.role, msg.content, time_str, msg_index=idx))
         return "".join(parts)
@@ -2003,6 +2058,7 @@ class MainWindow(QMainWindow):
         """Remove oldest message pairs if context exceeds hard limit."""
         if not self.current_session:
             return
+        count_before = len(self.current_session.messages)
         while (
             self.current_session.estimate_tokens() > CONTEXT_HARD_LIMIT
             and len(self.current_session.messages) > 2
@@ -2013,6 +2069,10 @@ class MainWindow(QMainWindow):
                 and self.current_session.messages[0].role == "assistant"
             ):
                 self.current_session.messages.pop(0)
+        removed = count_before - len(self.current_session.messages)
+        if removed > 0:
+            self.status_label.setText(f"{removed} alte Nachricht(en) entfernt (Kontextlimit)")
+            self.status_label.setStyleSheet("color: #f39c12;")
         self._update_counters()
 
     # --- Sending and receiving ---
