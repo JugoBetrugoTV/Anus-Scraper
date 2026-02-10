@@ -1,55 +1,57 @@
-# PreisHai - Europäischer Preisvergleich
+# Unzensierter KI Chat
 
-Preisvergleichs-Tool ähnlich wie Geizhals.de und Idealo. Durchsucht Google Shopping nach den günstigsten Angeboten in Europa und zeigt die 20 besten Ergebnisse an.
+Ein lokaler KI-Chatbot ohne Einschränkungen, powered by [Ollama](https://ollama.com).
 
 ## Features
 
-- **Produktsuche** über Google Shopping in mehreren EU-Ländern
-- **20 günstigste Händler** pro Suche (große und kleine Shops)
-- **Filter**: Land, Sortierung, Zustand (Neu/Gebraucht), Preisbereich
-- **Doppelklick** auf ein Ergebnis öffnet die Händlerseite im Browser
-- **Dark Mode** UI mit modernem Design
-- **Als .exe ausführbar** (Windows) oder als Python-Script
-
-## Installation & Start
-
-### Option 1: Python direkt starten
-
-```bash
-pip install -r requirements.txt
-python main.py
-```
-
-### Option 2: Als .exe bauen (Windows)
-
-```bash
-build.bat
-```
-
-Die fertige `PreisHai.exe` liegt dann in `dist/`.
-
-### Option 3: Auf Linux/Mac bauen
-
-```bash
-chmod +x build.sh
-./build.sh
-```
+- **Keine Zensur** - Nutzt lokale LLMs via Ollama, komplett unzensiert
+- **Streaming-Antworten** - Tokens werden in Echtzeit angezeigt
+- **Dark Theme** - Modernes, dunkles Design
+- **Mehrere Chats** - Verschiedene Chat-Sessions parallel
+- **Einstellbar** - Modell, System-Prompt, Temperatur konfigurierbar
+- **Presets** - Vorgefertigte Personas (Unzensiert, Roleplay, Kreativ)
 
 ## Voraussetzungen
 
-- Python 3.10+
-- Internetverbindung
+1. **Python 3.11+**
+2. **Ollama** installieren: https://ollama.com/download
 
-## Benutzung
+## Installation
 
-1. Suchbegriff eingeben (z.B. "RTX 4090", "iPhone 15 Pro")
-2. Optional: Filter setzen (Land, Preisbereich, Sortierung, Zustand)
-3. Auf "Suchen" klicken
-4. Ergebnisse werden in einer Tabelle angezeigt
-5. Doppelklick auf eine Zeile öffnet den Shop im Browser
+```bash
+# Dependencies installieren
+pip install -r requirements.txt
 
-## Hinweise
+# Ollama starten (in separatem Terminal)
+ollama serve
 
-- Das Tool durchsucht Google Shopping und extrahiert Preise von großen und kleinen Händlern
-- Alle Preise sind in Euro (€)
-- Bei zu vielen Anfragen kann Google temporär blockieren — einfach kurz warten
+# Ein unzensiertes Modell herunterladen
+ollama pull dolphin-mistral
+
+# App starten
+python main.py
+```
+
+## Empfohlene Modelle
+
+| Modell | Größe | Beschreibung |
+|--------|-------|-------------|
+| `dolphin-mistral` | ~4GB | Schnell, unzensiert, gut für Deutsch |
+| `dolphin-llama3` | ~4.7GB | Neuer, sehr gut für Roleplay |
+| `nous-hermes2` | ~4GB | Guter Allrounder |
+| `llama3-uncensored` | ~4.7GB | Meta Llama 3 ohne Filter |
+
+## Tastenkürzel
+
+- **Enter** - Nachricht senden
+- **Shift+Enter** - Neue Zeile
+
+## Build (EXE)
+
+```bash
+# Windows
+build.bat
+
+# Linux/Mac
+chmod +x build.sh && ./build.sh
+```
