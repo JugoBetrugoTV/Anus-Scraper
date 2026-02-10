@@ -47,6 +47,8 @@ _RE_H2 = re.compile(r"^## (.+)$", re.MULTILINE)
 _RE_H1 = re.compile(r"^# (.+)$", re.MULTILINE)
 _RE_BULLET = re.compile(r"^[*\-] (.+)$", re.MULTILINE)
 _RE_NUMLIST = re.compile(r"^(\d+)\. (.+)$", re.MULTILINE)
+_RE_BLOCKQUOTE = re.compile(r"^&gt; (.+)$", re.MULTILINE)
+_RE_HR = re.compile(r"^-{3,}$", re.MULTILINE)
 
 # Context window limits (in estimated tokens)
 CONTEXT_SOFT_LIMIT = 6000
@@ -231,6 +233,14 @@ def markdown_to_html(text: str) -> str:
     text = _RE_H3.sub(r'<b style="font-size:15px; color:#e94560;">\1</b>', text)
     text = _RE_H2.sub(r'<b style="font-size:17px; color:#e94560;">\1</b>', text)
     text = _RE_H1.sub(r'<b style="font-size:19px; color:#e94560;">\1</b>', text)
+    text = _RE_BLOCKQUOTE.sub(
+        r'<div style="border-left:3px solid #e94560; padding-left:10px; margin:4px 0; color:#a0a0c0;">\1</div>',
+        text,
+    )
+    text = _RE_HR.sub(
+        r'<hr style="border:none; border-top:1px solid #333; margin:8px 0;">',
+        text,
+    )
     text = _RE_BULLET.sub(r"&bull; \1", text)
     text = _RE_NUMLIST.sub(r"\1. \2", text)
     text = text.replace("\n", "<br>")
@@ -280,7 +290,8 @@ WELCOME_HTML = """
     </p>
     <p style="color: #666; font-size: 13px; margin-top: 30px;">
         Schreibe eine Nachricht um zu starten...<br><br>
-        <b>Shortcuts:</b> Ctrl+N = Neuer Chat | Escape = Stop | Ctrl+E = Export
+        <b>Shortcuts:</b> Ctrl+N = Neuer Chat | Escape = Stop | Ctrl+E = Export<br>
+        Ctrl+D = Duplizieren | Ctrl+I = Import | Ctrl+L = Chat leeren
     </p>
 </div>
 """
@@ -556,6 +567,8 @@ class SettingsDialog(QDialog):
 class MainWindow(QMainWindow):
     """Main chat window."""
 
+    _BASE_TITLE = "Unzensierter KI Chat"
+
     def __init__(self):
         super().__init__()
         settings = load_settings()
@@ -569,6 +582,9 @@ class MainWindow(QMainWindow):
         self._cached_history_html: str = ""
         self._auto_scroll = True
         self._stream_start_time: float = 0.0
+        self._ollama_connected = False
+        self._check_worker: OllamaCheckWorker | None = None
+        self._dirty_sessions: set[str] = set()  # session_ids that need saving
 
         # Batched streaming render timer
         self._render_timer = QTimer()
@@ -583,7 +599,7 @@ class MainWindow(QMainWindow):
         self._search_timer.timeout.connect(self._do_filter_sessions)
         self._search_query = ""
 
-        # Auto-save timer (every 30s)
+        # Auto-save timer (every 30s) - only saves dirty sessions
         self._autosave_timer = QTimer()
         self._autosave_timer.setInterval(30000)
         self._autosave_timer.timeout.connect(self._auto_save)
@@ -592,9 +608,14 @@ class MainWindow(QMainWindow):
         self._reconnect_timer = QTimer()
         self._reconnect_timer.setInterval(10000)
         self._reconnect_timer.timeout.connect(self.check_ollama_async)
-        self._ollama_connected = False
 
-        self.setWindowTitle("Unzensierter KI Chat")
+        # Title flash timer for notifications
+        self._title_flash_timer = QTimer()
+        self._title_flash_timer.setInterval(800)
+        self._title_flash_timer.timeout.connect(self._flash_title)
+        self._title_flash_state = False
+
+        self.setWindowTitle(self._BASE_TITLE)
         self.setMinimumSize(900, 650)
 
         self.setup_ui()
@@ -612,7 +633,7 @@ class MainWindow(QMainWindow):
         else:
             self.resize(1100, 750)
         splitter_pos = settings.get("splitter_sizes")
-        if splitter_pos and hasattr(self, '_splitter'):
+        if splitter_pos:
             self._splitter.setSizes(splitter_pos)
 
     def _save_geometry(self):
@@ -622,12 +643,25 @@ class MainWindow(QMainWindow):
         settings["splitter_sizes"] = self._splitter.sizes()
         save_settings(settings)
 
+    def _mark_dirty(self, session: ChatSession | None = None):
+        """Mark a session as needing save on next auto-save cycle."""
+        s = session or self.current_session
+        if s:
+            self._dirty_sessions.add(s.session_id)
+
     def _auto_save(self):
+        """Only save sessions that were modified since last save."""
+        if not self._dirty_sessions:
+            return
         for session in self.sessions:
-            if session.messages:
+            if session.session_id in self._dirty_sessions and session.messages:
                 session.save()
+        self._dirty_sessions.clear()
 
     def check_ollama_async(self):
+        # Guard: don't spawn a new worker if one is still running
+        if self._check_worker and self._check_worker.isRunning():
+            return
         self.status_label.setText("Verbinde mit Ollama...")
         self.status_label.setStyleSheet("color: #666;")
         self._check_worker = OllamaCheckWorker(self.client)
@@ -639,22 +673,34 @@ class MainWindow(QMainWindow):
             self._ollama_connected = False
             self.status_label.setText("Ollama nicht erreichbar! Starte: ollama serve")
             self.status_label.setStyleSheet("color: #e94560;")
-            # Start auto-reconnect
+            self.send_btn.setEnabled(False)
             if not self._reconnect_timer.isActive():
                 self._reconnect_timer.start()
         else:
             self._ollama_connected = True
             self._reconnect_timer.stop()
+            self.send_btn.setEnabled(True)
             self.status_label.setText(
                 f"Ollama verbunden | {model_count} Modell{'e' if model_count != 1 else ''} verfügbar"
             )
             self.status_label.setStyleSheet("color: #53d769;")
+        self._update_model_label()
+
+    def _update_model_label(self):
+        """Update the model name display in the bottom bar."""
+        if self.current_session:
+            self.model_label.setText(self.current_session.model)
+        else:
+            self.model_label.setText("")
 
     def setup_shortcuts(self):
         QShortcut(QKeySequence("Ctrl+N"), self, self.new_session)
         QShortcut(QKeySequence("Escape"), self, self.stop_streaming)
         QShortcut(QKeySequence("Ctrl+E"), self, lambda: self.export_chat("txt"))
         QShortcut(QKeySequence("Ctrl+Shift+E"), self, lambda: self.export_chat("json"))
+        QShortcut(QKeySequence("Ctrl+D"), self, self.duplicate_session)
+        QShortcut(QKeySequence("Ctrl+I"), self, self.import_chat)
+        QShortcut(QKeySequence("Ctrl+L"), self, self.clear_chat)
 
     def setup_ui(self):
         central = QWidget()
@@ -724,10 +770,16 @@ class MainWindow(QMainWindow):
         export_row.addWidget(btn_export_json)
         sidebar_layout.addLayout(export_row)
 
-        btn_delete = QPushButton("Chat löschen")
+        delete_row = QHBoxLayout()
+        btn_clear = QPushButton("Leeren")
+        btn_clear.setObjectName("secondary")
+        btn_clear.clicked.connect(self.clear_chat)
+        delete_row.addWidget(btn_clear)
+        btn_delete = QPushButton("Löschen")
         btn_delete.setObjectName("danger")
         btn_delete.clicked.connect(self.delete_session)
-        sidebar_layout.addWidget(btn_delete)
+        delete_row.addWidget(btn_delete)
+        sidebar_layout.addLayout(delete_row)
 
         # --- Chat area ---
         chat_area = QWidget()
@@ -821,10 +873,15 @@ class MainWindow(QMainWindow):
         self.status_label.setStyleSheet("color: #666;")
         bottom_layout.addWidget(self.status_label, 1)
 
-        self.token_label = QLabel("")
-        self.token_label.setObjectName("token_counter")
-        self.token_label.setAlignment(Qt.AlignmentFlag.AlignRight)
-        bottom_layout.addWidget(self.token_label)
+        self.model_label = QLabel("")
+        self.model_label.setStyleSheet("color: #e94560; font-size: 12px;")
+        self.model_label.setAlignment(Qt.AlignmentFlag.AlignRight)
+        bottom_layout.addWidget(self.model_label)
+
+        self.stats_label = QLabel("")
+        self.stats_label.setObjectName("token_counter")
+        self.stats_label.setAlignment(Qt.AlignmentFlag.AlignRight)
+        bottom_layout.addWidget(self.stats_label)
 
         chat_layout.addWidget(bottom_bar)
 
@@ -832,12 +889,6 @@ class MainWindow(QMainWindow):
         self._splitter.addWidget(chat_area)
         self._splitter.setSizes([240, 860])
         main_layout.addWidget(self._splitter)
-
-        # Restore splitter after UI is built
-        settings = load_settings()
-        splitter_pos = settings.get("splitter_sizes")
-        if splitter_pos:
-            self._splitter.setSizes(splitter_pos)
 
     def eventFilter(self, obj, event):
         if obj == self.input_field and event.type() == event.Type.KeyPress:
@@ -868,9 +919,29 @@ class MainWindow(QMainWindow):
         else:
             self.autoscroll_btn.setText("Auto-Scroll: AUS")
             self.autoscroll_btn.setObjectName("toggle_off")
-        # Force style refresh
         self.autoscroll_btn.style().unpolish(self.autoscroll_btn)
         self.autoscroll_btn.style().polish(self.autoscroll_btn)
+
+    # --- Title flash notification ---
+
+    def _flash_title(self):
+        self._title_flash_state = not self._title_flash_state
+        if self._title_flash_state:
+            self.setWindowTitle("*** Antwort fertig! ***")
+        else:
+            self.setWindowTitle(self._BASE_TITLE)
+
+    def _stop_title_flash(self):
+        self._title_flash_timer.stop()
+        self._title_flash_state = False
+        self.setWindowTitle(self._BASE_TITLE)
+
+    def changeEvent(self, event):
+        """Stop title flash when window gets focus."""
+        super().changeEvent(event)
+        if event.type() == event.Type.ActivationChange and self.isActiveWindow():
+            if self._title_flash_timer.isActive():
+                self._stop_title_flash()
 
     # --- Anchor click handler (QTextBrowser) ---
 
@@ -909,6 +980,7 @@ class MainWindow(QMainWindow):
                 return
             self.current_session.messages = self.current_session.messages[:idx]
             self.current_session.messages.append(Message(role="user", content=new_text.strip()))
+            self._mark_dirty()
             self.render_chat()
             self._start_streaming()
 
@@ -951,8 +1023,9 @@ class MainWindow(QMainWindow):
             self.current_session = self.sessions[row]
             self._cached_history_html = ""
             self.render_chat()
-            self.update_token_counter()
+            self._update_counters()
             self._update_action_buttons()
+            self._update_model_label()
 
     def _rename_session(self, item: QListWidgetItem):
         row = self.session_list.row(item)
@@ -965,7 +1038,7 @@ class MainWindow(QMainWindow):
         if ok and new_name.strip():
             self.sessions[row].name = new_name.strip()
             self._update_session_list_item(row)
-            self.sessions[row].save()
+            self._mark_dirty(self.sessions[row])
 
     def duplicate_session(self):
         if not self.current_session:
@@ -995,7 +1068,6 @@ class MainWindow(QMainWindow):
             return
         try:
             session = ChatSession.load(Path(path))
-            # Assign new session_id so it doesn't overwrite the original
             session.session_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
             session.save()
             self.sessions.append(session)
@@ -1007,6 +1079,26 @@ class MainWindow(QMainWindow):
             self.status_label.setStyleSheet("color: #53d769;")
         except Exception as e:
             QMessageBox.warning(self, "Import Fehler", f"Konnte Chat nicht importieren:\n{e}")
+
+    def clear_chat(self):
+        if not self.current_session or not self.current_session.messages:
+            return
+        reply = QMessageBox.question(
+            self,
+            "Chat leeren",
+            f"Alle Nachrichten in \"{self.current_session.name}\" löschen?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        self.current_session.messages.clear()
+        self._mark_dirty()
+        self.render_chat()
+        self._update_counters()
+        self._update_action_buttons()
+        row = self.session_list.currentRow()
+        self._update_session_list_item(row)
 
     def delete_session(self):
         row = self.session_list.currentRow()
@@ -1021,6 +1113,7 @@ class MainWindow(QMainWindow):
         )
         if reply != QMessageBox.StandardButton.Yes:
             return
+        self._dirty_sessions.discard(self.sessions[row].session_id)
         self.sessions[row].delete_file()
         self.sessions.pop(row)
         self.session_list.takeItem(row)
@@ -1102,18 +1195,21 @@ class MainWindow(QMainWindow):
             self._pending_tokens = False
             self._render_with_streaming()
 
-    def update_token_counter(self):
+    def _update_counters(self):
+        """Update token, word, and character counters."""
         if self.current_session:
             tokens = self.current_session.estimate_tokens()
-            self.token_label.setText(f"~{tokens:,} Tokens")
+            total_chars = sum(len(m.content) for m in self.current_session.messages)
+            total_words = sum(len(m.content.split()) for m in self.current_session.messages)
+            self.stats_label.setText(f"~{tokens:,} Tokens | {total_words:,} Wörter | {total_chars:,} Zeichen")
             if tokens > CONTEXT_HARD_LIMIT:
-                self.token_label.setStyleSheet("color: #e94560; font-size: 12px;")
+                self.stats_label.setStyleSheet("color: #e94560; font-size: 12px;")
             elif tokens > CONTEXT_SOFT_LIMIT:
-                self.token_label.setStyleSheet("color: #f39c12; font-size: 12px;")
+                self.stats_label.setStyleSheet("color: #f39c12; font-size: 12px;")
             else:
-                self.token_label.setStyleSheet("color: #666; font-size: 12px;")
+                self.stats_label.setStyleSheet("color: #666; font-size: 12px;")
         else:
-            self.token_label.setText("")
+            self.stats_label.setText("")
 
     def _update_action_buttons(self):
         has_msgs = self.current_session and self.current_session.messages
@@ -1140,11 +1236,15 @@ class MainWindow(QMainWindow):
                 and self.current_session.messages[0].role == "assistant"
             ):
                 self.current_session.messages.pop(0)
-        self.update_token_counter()
+        self._update_counters()
 
     # --- Sending and receiving ---
 
     def send_message(self):
+        if not self._ollama_connected:
+            self.status_label.setText("Ollama nicht verbunden! Kann nicht senden.")
+            self.status_label.setStyleSheet("color: #e94560;")
+            return
         text = self.input_field.toPlainText().strip()
         if not text or not self.current_session:
             return
@@ -1153,6 +1253,7 @@ class MainWindow(QMainWindow):
 
         self.current_session.messages.append(Message(role="user", content=text))
         self.input_field.clear()
+        self._mark_dirty()
 
         self._trim_context_if_needed()
         self.render_chat()
@@ -1194,14 +1295,18 @@ class MainWindow(QMainWindow):
                 Message(role="assistant", content=full_response)
             )
             self.current_session.save()
+            self._dirty_sessions.discard(self.current_session.session_id)
         self.render_chat()
-        self.update_token_counter()
+        self._update_counters()
         self._update_action_buttons()
         row = self.session_list.currentRow()
         self._update_session_list_item(row)
         self._reset_input_state()
         self.status_label.setText(f"Bereit | Antwort in {elapsed:.1f}s")
         self.status_label.setStyleSheet("color: #53d769;")
+        # Flash title if window not focused
+        if not self.isActiveWindow():
+            self._title_flash_timer.start()
 
     def on_stream_error(self, error: str):
         self._render_timer.stop()
@@ -1210,6 +1315,7 @@ class MainWindow(QMainWindow):
                 Message(role="assistant", content=f"[FEHLER] {error}")
             )
             self.current_session.save()
+            self._dirty_sessions.discard(self.current_session.session_id)
         self.render_chat()
         self._update_action_buttons()
         row = self.session_list.currentRow()
@@ -1227,8 +1333,9 @@ class MainWindow(QMainWindow):
                 Message(role="assistant", content=partial + "\n[Gestoppt]")
             )
             self.current_session.save()
+            self._dirty_sessions.discard(self.current_session.session_id)
         self.render_chat()
-        self.update_token_counter()
+        self._update_counters()
         self._update_action_buttons()
         row = self.session_list.currentRow()
         self._update_session_list_item(row)
@@ -1239,8 +1346,10 @@ class MainWindow(QMainWindow):
         self.stop_btn.setVisible(False)
         self.input_field.setEnabled(True)
         self.input_field.setFocus()
-        self.status_label.setText("Bereit")
-        self.status_label.setStyleSheet("color: #53d769;")
+        # Only set "Bereit" if not overridden by on_stream_done
+        if "Antwort in" not in self.status_label.text():
+            self.status_label.setText("Bereit")
+            self.status_label.setStyleSheet("color: #53d769;")
 
     # --- Regenerate, copy, edit ---
 
@@ -1253,6 +1362,7 @@ class MainWindow(QMainWindow):
             self.current_session.messages.pop()
         if not self.current_session.messages:
             return
+        self._mark_dirty()
         self.render_chat()
         self._start_streaming()
 
@@ -1290,6 +1400,7 @@ class MainWindow(QMainWindow):
             return
         self.current_session.messages = self.current_session.messages[:last_user_idx]
         self.current_session.messages.append(Message(role="user", content=new_text.strip()))
+        self._mark_dirty()
         self.render_chat()
         self._start_streaming()
 
@@ -1300,6 +1411,8 @@ class MainWindow(QMainWindow):
             return
         dlg = SettingsDialog(self, self.current_session, self.client)
         if dlg.exec():
+            self._mark_dirty()
+            self._update_model_label()
             self.check_ollama_async()
 
     def open_model_pull(self):
@@ -1329,6 +1442,8 @@ class MainWindow(QMainWindow):
         self._save_geometry()
         self._autosave_timer.stop()
         self._reconnect_timer.stop()
+        self._title_flash_timer.stop()
+        # Save all dirty + non-empty sessions on exit
         for session in self.sessions:
             if session.messages:
                 session.save()
