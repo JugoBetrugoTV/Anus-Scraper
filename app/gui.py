@@ -1,6 +1,7 @@
 """PyQt6 Chat GUI with dark theme, streaming, markdown, and persistence."""
 
 import html
+import json
 import re
 import time
 from datetime import datetime
@@ -391,25 +392,54 @@ class StreamWorker(QThread):
         self.client = client
         self.session = session
         self._stop = False
+        self._response = None
 
     def run(self):
         chunks: list[str] = []
         try:
             messages = self.session.to_api_messages()
-            for token in self.client.chat_stream(
-                messages, self.session.model, self.session.temperature
-            ):
-                if self._stop:
-                    break
-                chunks.append(token)
-                self.token_received.emit(token)
+            self._response = self.client.session.post(
+                f"{self.client.base_url}/api/chat",
+                json={
+                    "model": self.session.model,
+                    "messages": messages,
+                    "stream": True,
+                    "options": {"temperature": self.session.temperature},
+                },
+                stream=True,
+                timeout=(10, 300),
+            )
+            self._response.raise_for_status()
+            try:
+                for line in self._response.iter_lines():
+                    if self._stop:
+                        break
+                    if line:
+                        chunk = json.loads(line)
+                        token = chunk.get("message", {}).get("content", "")
+                        if token:
+                            chunks.append(token)
+                            self.token_received.emit(token)
+                        if chunk.get("done"):
+                            break
+            finally:
+                self._response.close()
+                self._response = None
         except Exception as e:
-            self.error_occurred.emit(str(e))
-            return
+            if not self._stop:
+                self.error_occurred.emit(str(e))
+                return
         self.finished_streaming.emit("".join(chunks))
 
     def stop(self):
         self._stop = True
+        # Close the response to unblock iter_lines()
+        r = self._response
+        if r is not None:
+            try:
+                r.close()
+            except Exception:
+                pass
 
 
 class ModelPullWorker(QThread):
@@ -531,6 +561,12 @@ class ModelPullDialog(QDialog):
         models = self.client.list_models()
         if models:
             self.installed_combo.addItems(models)
+
+    def reject(self):
+        if self.worker and self.worker.isRunning():
+            self.worker.quit()
+            self.worker.wait(2000)
+        super().reject()
 
     def _delete_model(self):
         model = self.installed_combo.currentText()
@@ -1580,7 +1616,10 @@ class MainWindow(QMainWindow):
             self.status_label.setStyleSheet("color: #53d769;")
             QTimer.singleShot(2000, lambda: self.status_label.setText("Bereit"))
         elif action == "copycode":
-            block_idx = int(parts[3]) if len(parts) > 3 else 0
+            try:
+                block_idx = int(parts[3]) if len(parts) > 3 else 0
+            except (ValueError, IndexError):
+                return
             blocks = re.findall(r"```\w*\n(.*?)```", msg.content, re.DOTALL)
             if 0 <= block_idx < len(blocks):
                 clipboard = QApplication.clipboard()
@@ -1838,6 +1877,15 @@ class MainWindow(QMainWindow):
         if not selected and self.sessions:
             self.session_list.setCurrentRow(0)
         self.session_list.blockSignals(False)
+        # Manually set current_session since blockSignals prevented switch_session
+        sel_row = self.session_list.currentRow()
+        if 0 <= sel_row < len(self.sessions):
+            self.current_session = self.sessions[sel_row]
+            self._cached_history_html = ""
+            self.render_chat()
+            self._update_counters()
+            self._update_action_buttons()
+            self._update_model_label()
         # Save sort mode
         mode_names = ["newest", "oldest", "name_az", "name_za", "most_msgs"]
         self._sort_mode = mode_names[index] if index < len(mode_names) else "newest"
@@ -2054,7 +2102,15 @@ class MainWindow(QMainWindow):
 
     def on_stream_error(self, error: str):
         self._render_timer.stop()
-        # Don't save error messages to session - show in status bar only
+        # Remove the user message that triggered the failed request (if no partial response)
+        if (
+            self.current_session
+            and self.current_session.messages
+            and self.current_session.messages[-1].role == "user"
+            and not self._streaming_chunks
+        ):
+            removed_msg = self.current_session.messages.pop()
+            self.input_field.setPlainText(removed_msg.content)
         self._cached_history_html = ""
         self.render_chat()
         self._update_action_buttons()
@@ -2237,9 +2293,11 @@ class MainWindow(QMainWindow):
                 return
             self.stream_worker.stop()
             self.stream_worker.wait(2000)
-        self._save_geometry()
-        # Save font zoom
+        # Save geometry + font zoom in one go
         settings = load_settings()
+        g = self.geometry()
+        settings["window_geometry"] = {"x": g.x(), "y": g.y(), "w": g.width(), "h": g.height()}
+        settings["splitter_sizes"] = self._splitter.sizes()
         settings["font_zoom"] = self._font_zoom
         save_settings(settings)
         self._autosave_timer.stop()

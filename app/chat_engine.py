@@ -55,14 +55,17 @@ class OllamaClient:
             timeout=(10, 300),
         )
         r.raise_for_status()
-        for line in r.iter_lines():
-            if line:
-                chunk = json.loads(line)
-                token = chunk.get("message", {}).get("content", "")
-                if token:
-                    yield token
-                if chunk.get("done"):
-                    break
+        try:
+            for line in r.iter_lines():
+                if line:
+                    chunk = json.loads(line)
+                    token = chunk.get("message", {}).get("content", "")
+                    if token:
+                        yield token
+                    if chunk.get("done"):
+                        break
+        finally:
+            r.close()
 
     def delete_model(self, model: str) -> bool:
         """Delete a model from Ollama."""
