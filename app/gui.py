@@ -329,18 +329,20 @@ def _build_message_html(role: str, content: str, time_str: str, streaming: bool 
             rendered = html.escape(content).replace("\n", "<br>")
             rendered += '<span style="color:#e94560;">|</span>'
             ki_label = '<b style="color: #53d769;">KI</b><span style="color: #e94560;"> (schreibt...)</span>'
+            action_links = f'<span style="color:#666; font-size:11px;">{time_str}</span>'
         else:
             rendered = markdown_to_html(content, msg_index=msg_index)
             ki_label = '<b style="color: #53d769;">KI</b>'
-        copy_link = f'<a href="action:copy:{msg_index}" style="color:#555; font-size:11px; text-decoration:none;">[kopieren]</a>'
-        delete_link = f'<a href="action:delete:{msg_index}" style="color:#555; font-size:11px; text-decoration:none;">[löschen]</a>'
+            copy_link = f'<a href="action:copy:{msg_index}" style="color:#555; font-size:11px; text-decoration:none;">[kopieren]</a>'
+            delete_link = f'<a href="action:delete:{msg_index}" style="color:#555; font-size:11px; text-decoration:none;">[löschen]</a>'
+            action_links = f'{copy_link} {delete_link} {time_str}'
         return (
             f'<div style="margin: 8px 0; padding: 12px 16px; '
             f'background-color: #1a1a2e; border-radius: 12px 12px 12px 4px; '
             f'max-width: 80%;">'
             f'{ki_label}<br>'
             f'<span style="color: #e0e0e0;">{rendered}</span>'
-            f'<div style="color: #666; font-size: 11px; margin-top: 4px;">{copy_link} {delete_link} {time_str}</div>'
+            f'<div style="color: #666; font-size: 11px; margin-top: 4px;">{action_links}</div>'
             f'</div>'
         )
 
@@ -1083,9 +1085,13 @@ class MainWindow(QMainWindow):
             return
         self.status_label.setText("Verbinde mit Ollama...")
         self.status_label.setStyleSheet("color: #666;")
+        old_worker = self._check_worker
         self._check_worker = OllamaCheckWorker(self.client)
         self._check_worker.result.connect(self._on_ollama_check)
+        self._check_worker.finished.connect(self._check_worker.deleteLater)
         self._check_worker.start()
+        if old_worker:
+            old_worker.deleteLater()
 
     def _on_ollama_check(self, available: bool, model_count: int):
         if not available:
@@ -1102,6 +1108,7 @@ class MainWindow(QMainWindow):
                     lambda s: self.status_label.setText(s)
                 )
                 self._start_worker.finished.connect(self._on_auto_start_done)
+                self._start_worker.finished.connect(self._start_worker.deleteLater)
                 self._start_worker.start()
                 return
             self.status_label.setText("Ollama nicht erreichbar! Starte: ollama serve")
@@ -1497,18 +1504,29 @@ class MainWindow(QMainWindow):
     def dropEvent(self, event):
         if event.mimeData().hasUrls():
             texts = []
+            skipped = 0
+            max_file_size = 1 * 1024 * 1024  # 1 MB
             for url in event.mimeData().urls():
                 path = Path(url.toLocalFile())
                 if path.is_file():
+                    if path.stat().st_size > max_file_size:
+                        skipped += 1
+                        continue
                     try:
                         content = path.read_text(encoding="utf-8")
                         texts.append(f"--- {path.name} ---\n{content}")
                     except Exception:
-                        pass
+                        skipped += 1
             if texts:
                 self.input_field.insertPlainText("\n".join(texts) + "\n")
-                self.status_label.setText(f"{len(texts)} Datei(en) eingefügt")
+                msg = f"{len(texts)} Datei(en) eingefügt"
+                if skipped:
+                    msg += f" ({skipped} übersprungen - zu groß/nicht lesbar)"
+                self.status_label.setText(msg)
                 self.status_label.setStyleSheet("color: #53d769;")
+            elif skipped:
+                self.status_label.setText(f"{skipped} Datei(en) übersprungen (max. 1MB / nur Text)")
+                self.status_label.setStyleSheet("color: #f39c12;")
             event.acceptProposedAction()
         else:
             super().dropEvent(event)
@@ -1613,16 +1631,15 @@ class MainWindow(QMainWindow):
         loaded = ChatSession.load_all()
         if loaded:
             self.sessions = loaded
-            # Restore sort mode
+            # Restore sort mode and always apply sorting
             mode_names = ["newest", "oldest", "name_az", "name_za", "most_msgs"]
             if self._sort_mode in mode_names:
                 idx = mode_names.index(self._sort_mode)
                 self.sort_combo.blockSignals(True)
                 self.sort_combo.setCurrentIndex(idx)
                 self.sort_combo.blockSignals(False)
-                if idx > 0:
-                    self._sort_sessions(idx)
-                    return
+                self._sort_sessions(idx)
+                return
             for s in self.sessions:
                 msg_count = len(s.messages)
                 label = f"{s.name}  ({msg_count})" if msg_count else s.name
@@ -1653,6 +1670,18 @@ class MainWindow(QMainWindow):
 
     def switch_session(self, row):
         if 0 <= row < len(self.sessions):
+            # Block session switch while streaming to prevent response going to wrong session
+            if self.stream_worker and self.stream_worker.isRunning():
+                # Find index of current session and re-select it
+                for i, s in enumerate(self.sessions):
+                    if s is self.current_session:
+                        self.session_list.blockSignals(True)
+                        self.session_list.setCurrentRow(i)
+                        self.session_list.blockSignals(False)
+                        break
+                self.status_label.setText("Kann während Streaming nicht wechseln!")
+                self.status_label.setStyleSheet("color: #f39c12;")
+                return
             self.current_session = self.sessions[row]
             self._cached_history_html = ""
             self.render_chat()
@@ -1798,12 +1827,16 @@ class MainWindow(QMainWindow):
             msg_count = len(s.messages)
             label = f"{s.name}  ({msg_count})" if msg_count else s.name
             self.session_list.addItem(QListWidgetItem(label))
-        # Re-select current session
+        # Re-select current session or first one
+        selected = False
         if current:
             for i, s in enumerate(self.sessions):
                 if s.session_id == current.session_id:
                     self.session_list.setCurrentRow(i)
+                    selected = True
                     break
+        if not selected and self.sessions:
+            self.session_list.setCurrentRow(0)
         self.session_list.blockSignals(False)
         # Save sort mode
         mode_names = ["newest", "oldest", "name_az", "name_za", "most_msgs"]
@@ -1977,12 +2010,16 @@ class MainWindow(QMainWindow):
         self.status_label.setText("KI denkt nach...")
         self.status_label.setStyleSheet("color: #e94560;")
 
+        old_worker = self.stream_worker
         self.stream_worker = StreamWorker(self.client, self.current_session)
         self.stream_worker.token_received.connect(self.append_streaming_token)
         self.stream_worker.finished_streaming.connect(self.on_stream_done)
         self.stream_worker.error_occurred.connect(self.on_stream_error)
+        self.stream_worker.finished.connect(self.stream_worker.deleteLater)
         self.stream_worker.start()
         self._render_timer.start()
+        if old_worker:
+            old_worker.deleteLater()
 
     def on_stream_done(self, full_response: str):
         self._render_timer.stop()
@@ -2017,18 +2054,14 @@ class MainWindow(QMainWindow):
 
     def on_stream_error(self, error: str):
         self._render_timer.stop()
-        if self.current_session:
-            self.current_session.messages.append(
-                Message(role="assistant", content=f"[FEHLER] {error}")
-            )
-            self.current_session.save()
-            self._dirty_sessions.discard(self.current_session.session_id)
+        # Don't save error messages to session - show in status bar only
+        self._cached_history_html = ""
         self.render_chat()
         self._update_action_buttons()
         row = self.session_list.currentRow()
         self._update_session_list_item(row)
         self._reset_input_state()
-        self.status_label.setText(f"Fehler: {error[:60]}")
+        self.status_label.setText(f"Fehler: {error[:80]}")
         self.status_label.setStyleSheet("color: #e94560;")
 
     def stop_streaming(self):
@@ -2137,21 +2170,34 @@ class MainWindow(QMainWindow):
                 "Text-Dateien (*.txt)"
             )
             if path:
-                self.current_session.export_txt(Path(path))
+                try:
+                    self.current_session.export_txt(Path(path))
+                    self.status_label.setText(f"Exportiert: {Path(path).name}")
+                    self.status_label.setStyleSheet("color: #53d769;")
+                except Exception as e:
+                    QMessageBox.warning(self, "Export Fehler", f"Konnte nicht exportieren:\n{e}")
         elif fmt == "html":
             path, _ = QFileDialog.getSaveFileName(
                 self, "Chat als HTML exportieren", f"{self.current_session.name}.html",
                 "HTML-Dateien (*.html)"
             )
             if path:
-                self._export_html(Path(path))
+                try:
+                    self._export_html(Path(path))
+                except Exception as e:
+                    QMessageBox.warning(self, "Export Fehler", f"Konnte nicht exportieren:\n{e}")
         else:
             path, _ = QFileDialog.getSaveFileName(
                 self, "Chat exportieren", f"{self.current_session.name}.json",
                 "JSON-Dateien (*.json)"
             )
             if path:
-                self.current_session.export_json(Path(path))
+                try:
+                    self.current_session.export_json(Path(path))
+                    self.status_label.setText(f"Exportiert: {Path(path).name}")
+                    self.status_label.setStyleSheet("color: #53d769;")
+                except Exception as e:
+                    QMessageBox.warning(self, "Export Fehler", f"Konnte nicht exportieren:\n{e}")
 
     def _export_html(self, path: Path):
         header = self._build_chat_header()
@@ -2177,6 +2223,20 @@ class MainWindow(QMainWindow):
         self.status_label.setStyleSheet("color: #53d769;")
 
     def closeEvent(self, event):
+        # Warn user if streaming is active
+        if self.stream_worker and self.stream_worker.isRunning():
+            reply = QMessageBox.question(
+                self,
+                "KI schreibt noch",
+                "Die KI generiert gerade eine Antwort.\nTrotzdem beenden?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                event.ignore()
+                return
+            self.stream_worker.stop()
+            self.stream_worker.wait(2000)
         self._save_geometry()
         # Save font zoom
         settings = load_settings()
@@ -2189,9 +2249,6 @@ class MainWindow(QMainWindow):
         for session in self.sessions:
             if session.messages:
                 session.save()
-        if self.stream_worker and self.stream_worker.isRunning():
-            self.stream_worker.stop()
-            self.stream_worker.wait(2000)
         if self._tray_icon:
             self._tray_icon.hide()
         self.client.session.close()

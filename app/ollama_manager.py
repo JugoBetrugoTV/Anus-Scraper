@@ -14,9 +14,10 @@ logger = logging.getLogger(__name__)
 class OllamaManager:
     """Manages the Ollama binary: detection, installation, server lifecycle."""
 
-    def __init__(self):
+    def __init__(self, base_url: str = "http://localhost:11434"):
         self._process: subprocess.Popen | None = None
         self._ollama_path: str | None = None
+        self.base_url = base_url.rstrip("/")
 
     # --- Detection ---
 
@@ -74,7 +75,7 @@ class OllamaManager:
         # Try connecting to the API
         import requests
         try:
-            r = requests.get("http://localhost:11434/api/tags", timeout=2)
+            r = requests.get(f"{self.base_url}/api/tags", timeout=2)
             return r.status_code == 200
         except Exception:
             return False

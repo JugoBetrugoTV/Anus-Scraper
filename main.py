@@ -33,16 +33,10 @@ def main():
     logger = logging.getLogger(__name__)
     logger.info("Starting Unzensierter KI Chat...")
 
-    # Initialize Ollama manager
-    manager = OllamaManager()
-
-    # Auto-start Ollama if installed but not running
-    if manager.is_installed() and not manager.is_server_running():
-        logger.info("Auto-starting Ollama server...")
-        if manager.start_server():
-            logger.info("Ollama server started successfully")
-        else:
-            logger.warning("Could not auto-start Ollama server")
+    # Initialize Ollama manager with configured URL
+    settings = load_settings()
+    base_url = settings.get("ollama_url", "http://localhost:11434")
+    manager = OllamaManager(base_url=base_url)
 
     app = QApplication(sys.argv)
     app.setApplicationName("Unzensierter KI Chat")
@@ -52,7 +46,6 @@ def main():
     window.show()
 
     # Show setup wizard on first launch or if Ollama is not installed
-    settings = load_settings()
     if not settings.get("setup_done") or not manager.is_installed():
         window.show_setup_wizard()
         settings["setup_done"] = True
