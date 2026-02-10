@@ -1734,8 +1734,11 @@ class MainWindow(QMainWindow):
 
     def check_ollama_async(self):
         # Guard: don't spawn a new worker if one is still running
-        if self._check_worker and self._check_worker.isRunning():
-            return
+        try:
+            if self._check_worker and self._check_worker.isRunning():
+                return
+        except RuntimeError:
+            self._check_worker = None
         self.status_label.setText("Verbinde mit Ollama...")
         self.status_label.setStyleSheet("color: #48484a;")
         old_worker = self._check_worker
@@ -1744,7 +1747,10 @@ class MainWindow(QMainWindow):
         self._check_worker.finished.connect(self._check_worker.deleteLater)
         self._check_worker.start()
         if old_worker:
-            old_worker.deleteLater()
+            try:
+                old_worker.deleteLater()
+            except RuntimeError:
+                pass
 
     def _on_ollama_check(self, available: bool, model_count: int):
         if not available:

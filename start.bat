@@ -128,16 +128,21 @@ echo  [OK] Ollama installiert
 
 :: Ollama Server stoppen und mit korrektem Modell-Pfad neu starten
 :: Damit die OLLAMA_MODELS Variable greift
-echo  [*] Starte Ollama mit Modell-Pfad: %OLLAMA_MODELS%
-taskkill /f /im ollama.exe >nul 2>&1
-timeout /t 2 /nobreak >nul
+echo  [*] Modell-Pfad: %OLLAMA_MODELS%
 
-start "" /B ollama serve >nul 2>&1
+:: Alle Ollama-Prozesse stoppen
+taskkill /f /im ollama.exe >nul 2>&1
+taskkill /f /im "ollama app.exe" >nul 2>&1
+timeout /t 3 /nobreak >nul
+
+:: Ollama neu starten mit unserer OLLAMA_MODELS Variable
+echo  [*] Starte Ollama Server...
+start "ollama" /MIN cmd /c "ollama serve"
 
 :: Warten bis Server bereit ist
 set "WAIT=0"
 :wait_ollama
-if %WAIT% geq 20 (
+if %WAIT% geq 30 (
     echo  [!] Ollama Server startet nicht - starte App trotzdem...
     goto ollama_running
 )
