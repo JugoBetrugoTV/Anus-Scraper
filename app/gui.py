@@ -35,6 +35,7 @@ from PyQt6.QtWidgets import (
 
 from app.chat_engine import OllamaClient, DEFAULT_BASE_URL
 from app.models import ChatSession, Message, load_settings, save_settings, load_prompts, save_prompts
+from app.ollama_manager import OllamaManager
 
 # --- Pre-compiled markdown regexes ---
 
@@ -348,7 +349,8 @@ WELCOME_HTML = """
 <div style="text-align: center; padding: 60px 20px;">
     <h1 style="color: #e94560; font-size: 32px;">Unzensierter KI Chat</h1>
     <p style="color: #a0a0c0; font-size: 16px; margin-top: 16px;">
-        Lokale KI ohne Einschränkungen via Ollama
+        Lokale KI ohne Einschr&auml;nkungen via Ollama<br>
+        <span style="color:#53d769; font-size:13px;">Alles l&auml;uft lokal auf deinem PC - kein Internet n&ouml;tig!</span>
     </p>
     <p style="color: #666; font-size: 13px; margin-top: 30px;">
         Schreibe eine Nachricht um zu starten...<br>
@@ -549,6 +551,254 @@ class ModelPullDialog(QDialog):
             self.status_label.setStyleSheet("color: #e94560;")
 
 
+class OllamaStartWorker(QThread):
+    """Background thread for starting Ollama server."""
+
+    finished = pyqtSignal(bool, str)
+    status_update = pyqtSignal(str)
+
+    def __init__(self, manager: OllamaManager):
+        super().__init__()
+        self.manager = manager
+
+    def run(self):
+        if self.manager.is_server_running():
+            self.finished.emit(True, "Ollama läuft bereits")
+            return
+        self.status_update.emit("Starte Ollama Server...")
+        success = self.manager.start_server()
+        if success:
+            self.finished.emit(True, "Ollama Server gestartet!")
+        else:
+            self.finished.emit(False, "Ollama Server konnte nicht gestartet werden")
+
+
+class OllamaInstallWorker(QThread):
+    """Background thread for installing Ollama."""
+
+    finished = pyqtSignal(bool, str)
+    status_update = pyqtSignal(str)
+
+    def __init__(self, manager: OllamaManager):
+        super().__init__()
+        self.manager = manager
+
+    def run(self):
+        success, msg = self.manager.install_ollama(
+            progress_callback=lambda s: self.status_update.emit(s)
+        )
+        self.finished.emit(success, msg)
+
+
+class SetupWizard(QDialog):
+    """First-launch setup wizard for Ollama installation and model download."""
+
+    def __init__(self, parent, manager: OllamaManager, client: OllamaClient):
+        super().__init__(parent)
+        self.manager = manager
+        self.client = client
+        self._install_worker = None
+        self._start_worker = None
+        self._pull_worker = None
+        self.setWindowTitle("Ersteinrichtung - KI Chat")
+        self.setMinimumSize(550, 420)
+        self.setModal(True)
+        self.setup_ui()
+        self._check_initial_state()
+
+    def setup_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setSpacing(14)
+
+        title = QLabel("Willkommen beim KI Chat!")
+        title.setObjectName("title")
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(title)
+
+        info = QLabel(
+            "Dieser Chat nutzt Ollama für lokale KI-Inferenz.\n"
+            "Alles läuft auf deinem PC - kein Internet nötig nach dem Setup."
+        )
+        info.setWordWrap(True)
+        info.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(info)
+
+        # --- Step 1: Ollama installation ---
+        step1 = QLabel("Schritt 1: Ollama installieren")
+        step1.setStyleSheet("color: #e94560; font-weight: bold; font-size: 15px;")
+        layout.addWidget(step1)
+
+        self.ollama_status = QLabel("Prüfe...")
+        layout.addWidget(self.ollama_status)
+
+        self.install_btn = QPushButton("Ollama automatisch installieren")
+        self.install_btn.clicked.connect(self._install_ollama)
+        self.install_btn.setVisible(False)
+        layout.addWidget(self.install_btn)
+
+        # --- Step 2: Start server ---
+        step2 = QLabel("Schritt 2: Ollama Server starten")
+        step2.setStyleSheet("color: #e94560; font-weight: bold; font-size: 15px;")
+        layout.addWidget(step2)
+
+        self.server_status = QLabel("Warte auf Schritt 1...")
+        layout.addWidget(self.server_status)
+
+        self.start_btn = QPushButton("Server starten")
+        self.start_btn.setObjectName("secondary")
+        self.start_btn.clicked.connect(self._start_server)
+        self.start_btn.setVisible(False)
+        layout.addWidget(self.start_btn)
+
+        # --- Step 3: Download model ---
+        step3 = QLabel("Schritt 3: KI-Modell herunterladen")
+        step3.setStyleSheet("color: #e94560; font-weight: bold; font-size: 15px;")
+        layout.addWidget(step3)
+
+        self.model_status = QLabel("Warte auf Schritt 2...")
+        layout.addWidget(self.model_status)
+
+        model_row = QHBoxLayout()
+        self.model_input = QLineEdit()
+        self.model_input.setText("dolphin-mistral")
+        self.model_input.setPlaceholderText("Modellname")
+        model_row.addWidget(self.model_input, 1)
+        self.download_btn = QPushButton("Herunterladen")
+        self.download_btn.clicked.connect(self._download_model)
+        self.download_btn.setVisible(False)
+        model_row.addWidget(self.download_btn)
+        layout.addLayout(model_row)
+
+        self.progress = QProgressBar()
+        self.progress.setVisible(False)
+        layout.addWidget(self.progress)
+
+        layout.addStretch()
+
+        # --- Bottom buttons ---
+        btn_row = QHBoxLayout()
+        self.skip_btn = QPushButton("Überspringen")
+        self.skip_btn.setObjectName("secondary")
+        self.skip_btn.clicked.connect(self.accept)
+        btn_row.addWidget(self.skip_btn)
+
+        self.done_btn = QPushButton("Fertig - Chat starten!")
+        self.done_btn.clicked.connect(self.accept)
+        self.done_btn.setVisible(False)
+        btn_row.addWidget(self.done_btn)
+
+        layout.addLayout(btn_row)
+
+    def _check_initial_state(self):
+        if self.manager.is_installed():
+            self.ollama_status.setText("Ollama ist installiert!")
+            self.ollama_status.setStyleSheet("color: #53d769;")
+            self._check_server()
+        else:
+            self.ollama_status.setText("Ollama ist NICHT installiert.")
+            self.ollama_status.setStyleSheet("color: #e94560;")
+            self.install_btn.setVisible(True)
+
+    def _install_ollama(self):
+        self.install_btn.setEnabled(False)
+        self.ollama_status.setText("Installiere Ollama...")
+        self.ollama_status.setStyleSheet("color: #f39c12;")
+        self._install_worker = OllamaInstallWorker(self.manager)
+        self._install_worker.status_update.connect(
+            lambda s: self.ollama_status.setText(s)
+        )
+        self._install_worker.finished.connect(self._on_install_done)
+        self._install_worker.start()
+
+    def _on_install_done(self, success: bool, msg: str):
+        self.install_btn.setEnabled(True)
+        if success:
+            self.ollama_status.setText(msg)
+            self.ollama_status.setStyleSheet("color: #53d769;")
+            self.install_btn.setVisible(False)
+            self._check_server()
+        else:
+            self.ollama_status.setText(msg)
+            self.ollama_status.setStyleSheet("color: #e94560;")
+
+    def _check_server(self):
+        if self.manager.is_server_running():
+            self.server_status.setText("Ollama Server läuft!")
+            self.server_status.setStyleSheet("color: #53d769;")
+            self._check_models()
+        else:
+            self.server_status.setText("Server ist nicht gestartet.")
+            self.server_status.setStyleSheet("color: #f39c12;")
+            self.start_btn.setVisible(True)
+
+    def _start_server(self):
+        self.start_btn.setEnabled(False)
+        self.server_status.setText("Starte Ollama Server...")
+        self.server_status.setStyleSheet("color: #f39c12;")
+        self._start_worker = OllamaStartWorker(self.manager)
+        self._start_worker.status_update.connect(
+            lambda s: self.server_status.setText(s)
+        )
+        self._start_worker.finished.connect(self._on_server_started)
+        self._start_worker.start()
+
+    def _on_server_started(self, success: bool, msg: str):
+        self.start_btn.setEnabled(True)
+        if success:
+            self.server_status.setText(msg)
+            self.server_status.setStyleSheet("color: #53d769;")
+            self.start_btn.setVisible(False)
+            self._check_models()
+        else:
+            self.server_status.setText(msg)
+            self.server_status.setStyleSheet("color: #e94560;")
+
+    def _check_models(self):
+        models = self.client.list_models()
+        if models:
+            self.model_status.setText(
+                f"{len(models)} Modell{'e' if len(models) != 1 else ''} verfügbar: {', '.join(models[:3])}"
+            )
+            self.model_status.setStyleSheet("color: #53d769;")
+            self.done_btn.setVisible(True)
+            self.download_btn.setVisible(True)
+            self.download_btn.setText("Weiteres Modell laden")
+        else:
+            self.model_status.setText("Kein Modell installiert. Bitte eines herunterladen.")
+            self.model_status.setStyleSheet("color: #f39c12;")
+            self.download_btn.setVisible(True)
+
+    def _download_model(self):
+        model = self.model_input.text().strip()
+        if not model:
+            return
+        self.download_btn.setEnabled(False)
+        self.progress.setVisible(True)
+        self.progress.setValue(0)
+        self.model_status.setText(f"Lade {model} herunter...")
+        self.model_status.setStyleSheet("color: #f39c12;")
+
+        self._pull_worker = ModelPullWorker(self.client, model)
+        self._pull_worker.progress_update.connect(self._on_pull_progress)
+        self._pull_worker.finished.connect(self._on_pull_done)
+        self._pull_worker.start()
+
+    def _on_pull_progress(self, status: str, pct: int):
+        self.progress.setValue(pct)
+        self.model_status.setText(status)
+
+    def _on_pull_done(self, success: bool, msg: str):
+        self.download_btn.setEnabled(True)
+        if success:
+            self.model_status.setText(msg)
+            self.model_status.setStyleSheet("color: #53d769;")
+            self.progress.setValue(100)
+            self.done_btn.setVisible(True)
+        else:
+            self.model_status.setText(msg)
+            self.model_status.setStyleSheet("color: #e94560;")
+
+
 class SettingsDialog(QDialog):
     """Settings dialog for model, system prompt, temperature, and Ollama URL."""
 
@@ -729,11 +979,12 @@ class MainWindow(QMainWindow):
 
     _BASE_TITLE = "Unzensierter KI Chat"
 
-    def __init__(self):
+    def __init__(self, ollama_manager: OllamaManager | None = None):
         super().__init__()
         settings = load_settings()
         base_url = settings.get("ollama_url", DEFAULT_BASE_URL)
         self.client = OllamaClient(base_url)
+        self.ollama_manager = ollama_manager or OllamaManager()
 
         self.sessions: list[ChatSession] = []
         self.current_session: ChatSession | None = None
@@ -749,6 +1000,7 @@ class MainWindow(QMainWindow):
         self._font_zoom: int = settings.get("font_zoom", 100)
         self._tray_icon: QSystemTrayIcon | None = None
         self._sort_mode: str = settings.get("sort_mode", "newest")
+        self._start_worker: OllamaStartWorker | None = None
 
         # Batched streaming render timer
         self._render_timer = QTimer()
@@ -838,9 +1090,22 @@ class MainWindow(QMainWindow):
     def _on_ollama_check(self, available: bool, model_count: int):
         if not available:
             self._ollama_connected = False
+            self.send_btn.setEnabled(False)
+            # Try to auto-start Ollama if installed
+            if self.ollama_manager.is_installed() and not (
+                self._start_worker and self._start_worker.isRunning()
+            ):
+                self.status_label.setText("Ollama nicht erreichbar - starte automatisch...")
+                self.status_label.setStyleSheet("color: #f39c12;")
+                self._start_worker = OllamaStartWorker(self.ollama_manager)
+                self._start_worker.status_update.connect(
+                    lambda s: self.status_label.setText(s)
+                )
+                self._start_worker.finished.connect(self._on_auto_start_done)
+                self._start_worker.start()
+                return
             self.status_label.setText("Ollama nicht erreichbar! Starte: ollama serve")
             self.status_label.setStyleSheet("color: #e94560;")
-            self.send_btn.setEnabled(False)
             if not self._reconnect_timer.isActive():
                 self._reconnect_timer.start()
         else:
@@ -852,6 +1117,25 @@ class MainWindow(QMainWindow):
             )
             self.status_label.setStyleSheet("color: #53d769;")
         self._update_model_label()
+
+    def _on_auto_start_done(self, success: bool, msg: str):
+        if success:
+            self.status_label.setText("Ollama automatisch gestartet!")
+            self.status_label.setStyleSheet("color: #53d769;")
+            # Re-check connection now
+            self.check_ollama_async()
+        else:
+            self.status_label.setText("Ollama konnte nicht gestartet werden")
+            self.status_label.setStyleSheet("color: #e94560;")
+            if not self._reconnect_timer.isActive():
+                self._reconnect_timer.start()
+
+    def show_setup_wizard(self):
+        """Show the first-launch setup wizard."""
+        wizard = SetupWizard(self, self.ollama_manager, self.client)
+        wizard.exec()
+        # Re-check after wizard closes
+        self.check_ollama_async()
 
     def _update_model_label(self):
         """Update the model name display in the bottom bar."""
@@ -924,6 +1208,11 @@ class MainWindow(QMainWindow):
         btn_download.setObjectName("secondary")
         btn_download.clicked.connect(self.open_model_pull)
         sidebar_layout.addWidget(btn_download)
+
+        btn_setup = QPushButton("Ollama Setup")
+        btn_setup.setObjectName("secondary")
+        btn_setup.clicked.connect(self.show_setup_wizard)
+        sidebar_layout.addWidget(btn_setup)
 
         sidebar_btn_row1 = QHBoxLayout()
         btn_import = QPushButton("Import")
@@ -1906,4 +2195,7 @@ class MainWindow(QMainWindow):
         if self._tray_icon:
             self._tray_icon.hide()
         self.client.session.close()
+        # Stop our managed Ollama process if we started it
+        if self.ollama_manager.is_managed_process:
+            self.ollama_manager.stop_server()
         event.accept()

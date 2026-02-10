@@ -8,6 +8,8 @@ from pathlib import Path
 from PyQt6.QtWidgets import QApplication
 
 from app.gui import MainWindow, DARK_STYLE
+from app.ollama_manager import OllamaManager
+from app.models import load_settings, save_settings
 
 
 def setup_logging():
@@ -31,12 +33,30 @@ def main():
     logger = logging.getLogger(__name__)
     logger.info("Starting Unzensierter KI Chat...")
 
+    # Initialize Ollama manager
+    manager = OllamaManager()
+
+    # Auto-start Ollama if installed but not running
+    if manager.is_installed() and not manager.is_server_running():
+        logger.info("Auto-starting Ollama server...")
+        if manager.start_server():
+            logger.info("Ollama server started successfully")
+        else:
+            logger.warning("Could not auto-start Ollama server")
+
     app = QApplication(sys.argv)
     app.setApplicationName("Unzensierter KI Chat")
     app.setStyleSheet(DARK_STYLE)
 
-    window = MainWindow()
+    window = MainWindow(ollama_manager=manager)
     window.show()
+
+    # Show setup wizard on first launch or if Ollama is not installed
+    settings = load_settings()
+    if not settings.get("setup_done") or not manager.is_installed():
+        window.show_setup_wizard()
+        settings["setup_done"] = True
+        save_settings(settings)
 
     logger.info("Application ready.")
     sys.exit(app.exec())
