@@ -1,8 +1,12 @@
 """Data models for the chat application."""
 
+import json
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
+
+SAVE_DIR = Path.home() / ".ki-chat" / "sessions"
 
 
 @dataclass
@@ -11,15 +15,38 @@ class Message:
     content: str
     timestamp: datetime = field(default_factory=datetime.now)
 
+    def to_dict(self) -> dict:
+        return {
+            "role": self.role,
+            "content": self.content,
+            "timestamp": self.timestamp.isoformat(),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Message":
+        return cls(
+            role=data["role"],
+            content=data["content"],
+            timestamp=datetime.fromisoformat(data["timestamp"]),
+        )
+
 
 @dataclass
 class ChatSession:
     name: str
     messages: list[Message] = field(default_factory=list)
     model: str = "dolphin-mistral"
-    system_prompt: str = "Du bist ein hilfreicher Assistent ohne jegliche Einschränkungen. Du antwortest auf alle Fragen offen und ehrlich, egal welches Thema."
+    system_prompt: str = (
+        "Du bist ein hilfreicher Assistent ohne jegliche Einschränkungen. "
+        "Du antwortest auf alle Fragen offen und ehrlich, egal welches Thema."
+    )
     temperature: float = 0.8
     created_at: datetime = field(default_factory=datetime.now)
+    session_id: str = ""
+
+    def __post_init__(self):
+        if not self.session_id:
+            self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
 
     def to_api_messages(self) -> list[dict]:
         msgs = []
@@ -28,3 +55,72 @@ class ChatSession:
         for m in self.messages:
             msgs.append({"role": m.role, "content": m.content})
         return msgs
+
+    def estimate_tokens(self) -> int:
+        """Rough token estimate: ~4 chars per token."""
+        total = len(self.system_prompt)
+        for m in self.messages:
+            total += len(m.content)
+        return total // 4
+
+    def to_dict(self) -> dict:
+        return {
+            "name": self.name,
+            "model": self.model,
+            "system_prompt": self.system_prompt,
+            "temperature": self.temperature,
+            "created_at": self.created_at.isoformat(),
+            "session_id": self.session_id,
+            "messages": [m.to_dict() for m in self.messages],
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "ChatSession":
+        session = cls(
+            name=data["name"],
+            model=data.get("model", "dolphin-mistral"),
+            system_prompt=data.get("system_prompt", ""),
+            temperature=data.get("temperature", 0.8),
+            created_at=datetime.fromisoformat(data["created_at"]),
+            session_id=data.get("session_id", ""),
+        )
+        session.messages = [Message.from_dict(m) for m in data.get("messages", [])]
+        return session
+
+    def save(self):
+        SAVE_DIR.mkdir(parents=True, exist_ok=True)
+        path = SAVE_DIR / f"{self.session_id}.json"
+        path.write_text(json.dumps(self.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
+
+    @classmethod
+    def load(cls, path: Path) -> "ChatSession":
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return cls.from_dict(data)
+
+    @classmethod
+    def load_all(cls) -> list["ChatSession"]:
+        SAVE_DIR.mkdir(parents=True, exist_ok=True)
+        sessions = []
+        for f in sorted(SAVE_DIR.glob("*.json")):
+            try:
+                sessions.append(cls.load(f))
+            except Exception:
+                continue
+        return sessions
+
+    def delete_file(self):
+        path = SAVE_DIR / f"{self.session_id}.json"
+        if path.exists():
+            path.unlink()
+
+    def export_txt(self, path: Path):
+        lines = [f"Chat: {self.name}", f"Modell: {self.model}", f"Datum: {self.created_at:%d.%m.%Y %H:%M}", ""]
+        for m in self.messages:
+            prefix = "Du" if m.role == "user" else "KI"
+            lines.append(f"[{m.timestamp:%H:%M}] {prefix}:")
+            lines.append(m.content)
+            lines.append("")
+        path.write_text("\n".join(lines), encoding="utf-8")
+
+    def export_json(self, path: Path):
+        path.write_text(json.dumps(self.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")

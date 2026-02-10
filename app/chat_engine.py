@@ -2,7 +2,7 @@
 
 import json
 import requests
-from typing import Generator, Optional
+from typing import Generator
 
 DEFAULT_BASE_URL = "http://localhost:11434"
 
@@ -14,11 +14,14 @@ class OllamaClient:
         self.base_url = base_url.rstrip("/")
         self.session = requests.Session()
 
+    def set_base_url(self, url: str):
+        self.base_url = url.rstrip("/")
+
     def is_available(self) -> bool:
         try:
             r = self.session.get(f"{self.base_url}/api/tags", timeout=3)
             return r.status_code == 200
-        except requests.ConnectionError:
+        except (requests.ConnectionError, requests.Timeout):
             return False
 
     def list_models(self) -> list[str]:
@@ -50,7 +53,7 @@ class OllamaClient:
                 f"{self.base_url}/api/chat",
                 json=payload,
                 stream=True,
-                timeout=120,
+                timeout=(10, 300),
             )
             r.raise_for_status()
             for line in r.iter_lines():
@@ -63,53 +66,24 @@ class OllamaClient:
                         break
         except requests.ConnectionError:
             yield "\n\n[FEHLER] Keine Verbindung zu Ollama. Starte Ollama mit: ollama serve"
+        except requests.Timeout:
+            yield "\n\n[FEHLER] Timeout - Ollama antwortet nicht."
         except Exception as e:
             yield f"\n\n[FEHLER] {e}"
 
-    def chat(
-        self,
-        messages: list[dict],
-        model: str = "dolphin-mistral",
-        temperature: float = 0.8,
-    ) -> str:
-        """Non-streaming chat completion."""
-        payload = {
-            "model": model,
-            "messages": messages,
-            "stream": False,
-            "options": {
-                "temperature": temperature,
-            },
-        }
-        try:
-            r = self.session.post(
-                f"{self.base_url}/api/chat",
-                json=payload,
-                timeout=120,
-            )
-            r.raise_for_status()
-            data = r.json()
-            return data.get("message", {}).get("content", "")
-        except requests.ConnectionError:
-            return "[FEHLER] Keine Verbindung zu Ollama. Starte Ollama mit: ollama serve"
-        except Exception as e:
-            return f"[FEHLER] {e}"
-
-    def pull_model(self, model: str) -> Generator[str, None, None]:
+    def pull_model(self, model: str) -> Generator[dict, None, None]:
         """Pull/download a model with progress updates."""
         try:
             r = self.session.post(
                 f"{self.base_url}/api/pull",
                 json={"name": model, "stream": True},
                 stream=True,
-                timeout=600,
+                timeout=(10, 600),
             )
             r.raise_for_status()
             for line in r.iter_lines():
                 if line:
                     chunk = json.loads(line)
-                    status = chunk.get("status", "")
-                    if status:
-                        yield status
+                    yield chunk
         except Exception as e:
-            yield f"[FEHLER] {e}"
+            yield {"status": f"[FEHLER] {e}", "error": True}
