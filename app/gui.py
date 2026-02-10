@@ -1374,14 +1374,18 @@ class MainWindow(QMainWindow):
         sidebar_layout.addLayout(sidebar_btn_row1)
 
         export_row = QHBoxLayout()
-        btn_export_txt = QPushButton("Export .txt")
+        btn_export_txt = QPushButton(".txt")
         btn_export_txt.setObjectName("secondary")
         btn_export_txt.clicked.connect(lambda: self.export_chat("txt"))
         export_row.addWidget(btn_export_txt)
-        btn_export_json = QPushButton("Export .json")
+        btn_export_json = QPushButton(".json")
         btn_export_json.setObjectName("secondary")
         btn_export_json.clicked.connect(lambda: self.export_chat("json"))
         export_row.addWidget(btn_export_json)
+        btn_export_html = QPushButton(".html")
+        btn_export_html.setObjectName("secondary")
+        btn_export_html.clicked.connect(lambda: self.export_chat("html"))
+        export_row.addWidget(btn_export_html)
         sidebar_layout.addLayout(export_row)
 
         delete_row = QHBoxLayout()
@@ -1790,18 +1794,12 @@ class MainWindow(QMainWindow):
         loaded = ChatSession.load_all()
         if loaded:
             self.sessions = loaded
-            # Restore sort mode and always apply sorting
             mode_names = ["newest", "oldest", "name_az", "name_za", "most_msgs"]
-            if self._sort_mode in mode_names:
-                idx = mode_names.index(self._sort_mode)
-                self.sort_combo.blockSignals(True)
-                self.sort_combo.setCurrentIndex(idx)
-                self.sort_combo.blockSignals(False)
-                self._sort_sessions(idx)
-                return
-            for s in self.sessions:
-                self.session_list.addItem(QListWidgetItem(self._session_label(s)))
-            self.session_list.setCurrentRow(len(self.sessions) - 1)
+            idx = mode_names.index(self._sort_mode) if self._sort_mode in mode_names else 0
+            self.sort_combo.blockSignals(True)
+            self.sort_combo.setCurrentIndex(idx)
+            self.sort_combo.blockSignals(False)
+            self._sort_sessions(idx)
         else:
             self.new_session()
 
