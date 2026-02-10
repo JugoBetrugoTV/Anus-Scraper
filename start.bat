@@ -1,6 +1,15 @@
 @echo off
+setlocal enabledelayedexpansion
 title Unzensierter KI Chat - Starter
 color 0F
+
+set "BASEDIR=%~dp0"
+set "PYDIR=%BASEDIR%python"
+set "PYPYTHON=%PYDIR%\python.exe"
+set "PYVERSION=3.12.10"
+set "PYZIP=python-%PYVERSION%-embed-amd64.zip"
+set "PYURL=https://www.python.org/ftp/python/%PYVERSION%/%PYZIP%"
+set "GETPIPURL=https://bootstrap.pypa.io/get-pip.py"
 
 echo.
 echo  ========================================
@@ -9,110 +18,150 @@ echo  ========================================
 echo.
 
 :: ============================================
-:: Schritt 1: Python finden
+:: Schritt 1: Portable Python bereitstellen
 :: ============================================
 echo [1/4] Suche Python...
 
-:: Zuerst "py" Launcher testen (zuverlaessigste Methode auf Windows)
+:: Pruefen ob portables Python bereits vorhanden
+if exist "%PYPYTHON%" (
+    echo  [OK] Portables Python gefunden
+    goto :python_ready
+)
+
+:: Pruefen ob System-Python verfuegbar ist
 py --version >nul 2>&1
 if %errorlevel%==0 (
-    set PYTHON=py
-    goto :found_python
+    echo  [OK] System-Python gefunden (py)
+    set "PYPYTHON=py"
+    goto :skip_portable
 )
 
-:: Dann python3 testen
-python3 --version >nul 2>&1
+python --version 2>nul | findstr /i "Python 3" >nul 2>&1
 if %errorlevel%==0 (
-    set PYTHON=python3
-    goto :found_python
+    echo  [OK] System-Python gefunden (python)
+    set "PYPYTHON=python"
+    goto :skip_portable
 )
 
-:: python testen - aber pruefen ob es der Windows Store Alias ist
-python --version >nul 2>&1
+:: Kein Python vorhanden - Portable Version herunterladen
+echo  [!] Python nicht gefunden - lade portable Version...
+echo  [*] Download: Python %PYVERSION% Embedded...
+echo.
+
+:: Ordner erstellen
+if not exist "%PYDIR%" mkdir "%PYDIR%"
+
+:: Download mit PowerShell (ist auf jedem Windows vorhanden)
+powershell -NoProfile -Command "try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%PYURL%' -OutFile '%BASEDIR%%PYZIP%' -UseBasicParsing; Write-Host ' [OK] Download abgeschlossen' } catch { Write-Host ' [FEHLER] Download fehlgeschlagen:' $_.Exception.Message; exit 1 }"
+if %errorlevel% neq 0 (
+    echo.
+    echo  [FEHLER] Python konnte nicht heruntergeladen werden.
+    echo  Pruefe deine Internetverbindung.
+    echo.
+    pause
+    exit /b 1
+)
+
+:: Entpacken mit PowerShell
+echo  [*] Entpacke Python...
+powershell -NoProfile -Command "try { Expand-Archive -Path '%BASEDIR%%PYZIP%' -DestinationPath '%PYDIR%' -Force; Write-Host ' [OK] Entpackt' } catch { Write-Host ' [FEHLER]' $_.Exception.Message; exit 1 }"
+if %errorlevel% neq 0 (
+    echo  [FEHLER] Entpacken fehlgeschlagen.
+    pause
+    exit /b 1
+)
+
+:: ZIP aufraemen
+del /q "%BASEDIR%%PYZIP%" >nul 2>&1
+
+:: PTH-Datei anpassen damit pip und Pakete funktionieren
+:: Die _pth Datei muss "import site" enthalten
+echo  [*] Konfiguriere Python...
+for %%f in ("%PYDIR%\python*._pth") do (
+    echo python312.zip> "%%f"
+    echo .>> "%%f"
+    echo import site>> "%%f"
+)
+
+:: pip installieren
+echo  [*] Installiere pip...
+powershell -NoProfile -Command "try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%GETPIPURL%' -OutFile '%PYDIR%\get-pip.py' -UseBasicParsing } catch { Write-Host ' [FEHLER]' $_.Exception.Message; exit 1 }"
+if %errorlevel% neq 0 (
+    echo  [FEHLER] get-pip.py Download fehlgeschlagen.
+    pause
+    exit /b 1
+)
+
+"%PYPYTHON%" "%PYDIR%\get-pip.py" --no-warn-script-location >nul 2>&1
+if %errorlevel% neq 0 (
+    echo  [FEHLER] pip Installation fehlgeschlagen.
+    echo  Versuche erneut mit Ausgabe:
+    "%PYPYTHON%" "%PYDIR%\get-pip.py"
+    pause
+    exit /b 1
+)
+del /q "%PYDIR%\get-pip.py" >nul 2>&1
+echo  [OK] Portable Python %PYVERSION% bereit!
+
+:python_ready
+:skip_portable
+
+:: ============================================
+:: Schritt 2: Ollama pruefen
+:: ============================================
+echo [2/4] Pruefe Ollama...
+
+where ollama >nul 2>&1
 if %errorlevel%==0 (
-    :: Pruefen ob es echtes Python ist (nicht der Store-Alias)
-    for /f "tokens=*" %%i in ('python --version 2^>^&1') do (
-        echo %%i | findstr /i "Python" >nul 2>&1
-        if !errorlevel!==0 (
-            set PYTHON=python
-            goto :found_python
-        )
-    )
+    echo  [OK] Ollama gefunden
+    goto :ollama_ready
 )
 
-:: Python nicht gefunden - automatisch installieren via winget
-echo.
-echo  [!] Python wurde NICHT gefunden.
-echo.
-echo  Du hast zwei Optionen:
-echo.
-echo  Option 1: Automatisch (winget)
-echo  Option 2: Manuell von https://www.python.org/downloads/
-echo             WICHTIG: Haken bei "Add Python to PATH" setzen!
+:: Pruefen ob Ollama laeuft
+powershell -NoProfile -Command "try { Invoke-WebRequest -Uri 'http://localhost:11434/api/tags' -UseBasicParsing -TimeoutSec 2 | Out-Null; exit 0 } catch { exit 1 }" >nul 2>&1
+if %errorlevel%==0 (
+    echo  [OK] Ollama laeuft bereits
+    goto :ollama_ready
+)
+
+echo  [!] Ollama nicht gefunden.
+echo  [*] Versuche Ollama zu installieren...
 echo.
 
 where winget >nul 2>&1
 if %errorlevel%==0 (
-    echo  Versuche automatische Installation via winget...
-    echo.
-    winget install Python.Python.3.12 --accept-source-agreements --accept-package-agreements
+    winget install Ollama.Ollama --accept-source-agreements --accept-package-agreements
     if %errorlevel%==0 (
+        echo  [OK] Ollama installiert!
+    ) else (
         echo.
-        echo  [OK] Python wurde installiert!
-        echo  WICHTIG: Schliesse dieses Fenster und starte start.bat NEU!
+        echo  [!] Ollama konnte nicht automatisch installiert werden.
+        echo  Bitte installiere Ollama manuell: https://ollama.com/download
         echo.
         pause
-        exit /b 0
+        exit /b 1
     )
+) else (
+    echo  Bitte installiere Ollama manuell: https://ollama.com/download
     echo.
-    echo  [!] Automatische Installation fehlgeschlagen.
+    pause
+    exit /b 1
 )
 
-echo.
-echo  Bitte installiere Python manuell:
-echo  https://www.python.org/downloads/
-echo.
-echo  WICHTIG: Beim Installer den Haken bei
-echo  "Add Python to PATH" setzen!
-echo.
-pause
-exit /b 1
-
-:found_python
-for /f "tokens=*" %%i in ('%PYTHON% --version 2^>^&1') do set PYVER=%%i
-echo  [OK] %PYVER% gefunden (%PYTHON%)
-
-:: ============================================
-:: Schritt 2: Virtual Environment
-:: ============================================
-echo [2/4] Richte Umgebung ein...
-
-set VENV_DIR=%~dp0.venv
-
-if not exist "%VENV_DIR%\Scripts\python.exe" (
-    echo  [*] Erstelle virtuelle Umgebung...
-    %PYTHON% -m venv "%VENV_DIR%"
-    if %errorlevel% neq 0 (
-        echo  [!] venv fehlgeschlagen, nutze System-Python...
-        set VPYTHON=%PYTHON%
-        goto :install_deps
-    )
-)
-set VPYTHON=%VENV_DIR%\Scripts\python.exe
-echo  [OK] Virtuelle Umgebung bereit
+:ollama_ready
 
 :: ============================================
 :: Schritt 3: Dependencies installieren
 :: ============================================
-:install_deps
 echo [3/4] Pruefe Dependencies...
 
-"%VPYTHON%" -c "import PyQt6" >nul 2>&1
+"%PYPYTHON%" -c "import PyQt6" >nul 2>&1
 if %errorlevel% neq 0 (
     echo  [*] Installiere Pakete (PyQt6, requests)...
-    "%VPYTHON%" -m pip install --upgrade pip >nul 2>&1
-    "%VPYTHON%" -m pip install -r "%~dp0requirements.txt"
+    "%PYPYTHON%" -m pip install --upgrade pip --no-warn-script-location >nul 2>&1
+    "%PYPYTHON%" -m pip install PyQt6 requests --no-warn-script-location
     if %errorlevel% neq 0 (
+        echo.
         echo  [FEHLER] Paketinstallation fehlgeschlagen!
         echo.
         pause
@@ -133,7 +182,7 @@ echo    App startet... Viel Spass!
 echo  ========================================
 echo.
 
-"%VPYTHON%" "%~dp0main.py"
+"%PYPYTHON%" "%BASEDIR%main.py"
 
 echo.
 if %errorlevel% neq 0 (
@@ -143,3 +192,4 @@ if %errorlevel% neq 0 (
 )
 echo.
 pause
+endlocal
