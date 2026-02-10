@@ -7,6 +7,7 @@ from pathlib import Path
 
 SAVE_DIR = Path.home() / ".ki-chat" / "sessions"
 SETTINGS_PATH = Path.home() / ".ki-chat" / "settings.json"
+PROMPTS_PATH = Path.home() / ".ki-chat" / "prompts.json"
 
 
 def load_settings() -> dict:
@@ -21,6 +22,20 @@ def load_settings() -> dict:
 def save_settings(settings: dict):
     SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
     SETTINGS_PATH.write_text(json.dumps(settings, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def load_prompts() -> dict:
+    if PROMPTS_PATH.exists():
+        try:
+            return json.loads(PROMPTS_PATH.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {}
+
+
+def save_prompts(prompts: dict):
+    PROMPTS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    PROMPTS_PATH.write_text(json.dumps(prompts, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 @dataclass
