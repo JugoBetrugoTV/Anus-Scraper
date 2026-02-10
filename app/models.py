@@ -44,6 +44,7 @@ class Message:
     content: str
     timestamp: datetime = field(default_factory=datetime.now)
     images: list[str] = field(default_factory=list)  # base64-encoded images
+    rating: int = 0  # 0=unrated, 1=good, -1=bad
 
     def to_dict(self) -> dict:
         d = {
@@ -53,6 +54,8 @@ class Message:
         }
         if self.images:
             d["images"] = self.images
+        if self.rating:
+            d["rating"] = self.rating
         return d
 
     @classmethod
@@ -62,6 +65,7 @@ class Message:
             content=data["content"],
             timestamp=datetime.fromisoformat(data["timestamp"]),
             images=data.get("images", []),
+            rating=data.get("rating", 0),
         )
 
 
@@ -167,3 +171,23 @@ class ChatSession:
 
     def export_json(self, path: Path):
         path.write_text(json.dumps(self.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
+
+    def export_md(self, path: Path):
+        lines = [
+            f"# {self.name}",
+            f"",
+            f"**Modell:** {self.model}  ",
+            f"**Datum:** {self.created_at:%d.%m.%Y %H:%M}  ",
+            f"**System-Prompt:** {self.system_prompt}",
+            f"",
+            f"---",
+            f"",
+        ]
+        for m in self.messages:
+            prefix = "**Du:**" if m.role == "user" else "**KI:**"
+            time_str = m.timestamp.strftime("%H:%M")
+            lines.append(f"### {prefix} _{time_str}_")
+            lines.append("")
+            lines.append(m.content)
+            lines.append("")
+        path.write_text("\n".join(lines), encoding="utf-8")
