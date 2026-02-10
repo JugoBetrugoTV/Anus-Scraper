@@ -110,8 +110,11 @@ echo.
 
 "%VPYTHON%" "%~dp0main.py"
 
+echo.
 if %errorlevel% neq 0 (
-    echo.
     echo  [FEHLER] App wurde mit Fehlercode %errorlevel% beendet.
-    pause
+) else (
+    echo  App wurde beendet.
 )
+echo.
+pause
