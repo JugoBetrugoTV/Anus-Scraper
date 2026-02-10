@@ -126,17 +126,18 @@ echo  [OK] Ollama installiert
 
 :ollama_ready
 
-:: Ollama Server starten falls nicht laeuft
-powershell -NoProfile -Command "try { Invoke-WebRequest -Uri 'http://localhost:11434/api/tags' -UseBasicParsing -TimeoutSec 2 | Out-Null; exit 0 } catch { exit 1 }" >nul 2>&1
-if %errorlevel%==0 goto ollama_running
+:: Ollama Server stoppen und mit korrektem Modell-Pfad neu starten
+:: Damit die OLLAMA_MODELS Variable greift
+echo  [*] Starte Ollama mit Modell-Pfad: %OLLAMA_MODELS%
+taskkill /f /im ollama.exe >nul 2>&1
+timeout /t 2 /nobreak >nul
 
-echo  [*] Starte Ollama Server...
 start "" /B ollama serve >nul 2>&1
 
 :: Warten bis Server bereit ist
 set "WAIT=0"
 :wait_ollama
-if %WAIT% geq 15 (
+if %WAIT% geq 20 (
     echo  [!] Ollama Server startet nicht - starte App trotzdem...
     goto ollama_running
 )
