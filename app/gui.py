@@ -2161,7 +2161,7 @@ class MainWindow(QMainWindow):
         settings = load_settings()
         base_url = settings.get("ollama_url", DEFAULT_BASE_URL)
         self.client = OllamaClient(base_url)
-        self.ollama_manager = ollama_manager or OllamaManager()
+        self.ollama_manager = ollama_manager or OllamaManager(base_url=base_url)
 
         self.sessions: list[ChatSession] = []
         self.current_session: ChatSession | None = None
@@ -3123,6 +3123,7 @@ class MainWindow(QMainWindow):
             self.current_session = self.sessions[row]
             self.current_session.ensure_messages_loaded()
             self._cached_history_html = ""
+            self._context_trimmed_count = 0
             self.render_chat()
             self._update_counters()
             self._update_action_buttons()
@@ -3500,7 +3501,12 @@ class MainWindow(QMainWindow):
             tokens = self.current_session.estimate_tokens()
             total_chars = sum(len(m.content) for m in self.current_session.messages)
             total_words = sum(len(m.content.split()) for m in self.current_session.messages)
-            self.stats_label.setText(f"~{tokens:,} Tokens | {total_words:,} Wörter | {total_chars:,} Zeichen")
+            pct = int(tokens / CONTEXT_HARD_LIMIT * 100) if CONTEXT_HARD_LIMIT else 0
+            trimmed = getattr(self, "_context_trimmed_count", 0)
+            text = f"~{tokens:,} Tokens ({pct}%) | {total_words:,} Wörter | {total_chars:,} Zeichen"
+            if trimmed > 0:
+                text += f" | {trimmed} getrimmt"
+            self.stats_label.setText(text)
             if tokens > CONTEXT_HARD_LIMIT:
                 self.stats_label.setStyleSheet("color: #ff453a; font-size: 11px;")
             elif tokens > CONTEXT_SOFT_LIMIT:
@@ -3539,7 +3545,11 @@ class MainWindow(QMainWindow):
                 self.current_session.messages.pop(0)
         removed = count_before - len(self.current_session.messages)
         if removed > 0:
-            self.status_label.setText(f"{removed} alte Nachricht(en) entfernt (Kontextlimit)")
+            self._context_trimmed_count = getattr(self, "_context_trimmed_count", 0) + removed
+            self.status_label.setText(
+                f"{removed} alte Nachricht(en) entfernt (Kontextlimit: "
+                f"~{CONTEXT_HARD_LIMIT:,} Tokens)"
+            )
             self.status_label.setStyleSheet("color: #ff9f0a;")
         self._update_counters()
 
@@ -3833,9 +3843,12 @@ class MainWindow(QMainWindow):
         if dlg.exec():
             self._mark_dirty()
             self._update_model_label()
+            # Sync URL zum OllamaManager
+            settings = load_settings()
+            new_url = settings.get("ollama_url", DEFAULT_BASE_URL)
+            self.ollama_manager.base_url = new_url.rstrip("/")
             self.check_ollama_async()
             # Apply theme if changed
-            settings = load_settings()
             theme_name = settings.get("theme", "Blau (Standard)")
             theme = _get_theme_colors(theme_name)
             _set_active_theme(theme)
