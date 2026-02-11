@@ -85,7 +85,7 @@ _LANG_ALIASES = {
     "rb": "ruby", "cs": "csharp",
     "cpp": "c++", "c": "c++", "h": "c++", "hpp": "c++",
     "kt": "kotlin", "md": "markdown",
-    "wow": "lua", "toc": "wowxml",
+    "wow": "lua", "wowtoc": "wowtoc", "toc": "wowtoc", "weakaura": "lua", "weakauras": "lua", "wa": "lua", "plater": "lua", "elvui": "lua",
 }
 
 _HIGHLIGHT_RULES = {
@@ -240,16 +240,35 @@ _HIGHLIGHT_RULES = {
         ("cmt", r"--\[\[[\s\S]*?\]\]|--[^\n]*"),
         ("str", r'\[\[[\s\S]*?\]\]|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\''),
         ("kw", r"\b(?:and|break|do|else|elseif|end|for|function|goto|if|in|local|not|or|repeat|return|then|until|while)\b"),
-        ("bi", r"\b(?:nil|true|false|self|print|pairs|ipairs|next|type|tostring|tonumber|unpack|select|error|pcall|xpcall|assert|require|setmetatable|getmetatable|rawget|rawset|rawequal|rawlen"
-               r"|table\.(?:insert|remove|sort|concat|wipe|getn|setn|move|pack|unpack)"
-               r"|string\.(?:format|find|match|gmatch|gsub|sub|len|byte|char|rep|reverse|upper|lower|trim|split|join)"
-               r"|math\.(?:floor|ceil|abs|min|max|random|randomseed|sqrt|sin|cos|tan|log|exp|huge|pi)"
-               r"|bit\.(?:band|bor|bxor|bnot|lshift|rshift)"
-               r"|coroutine\.(?:create|resume|yield|status|wrap|running)"
+        # Lua builtins + WoW Lua extensions
+        ("bi", r"\b(?:nil|true|false|self|print|pairs|ipairs|next|type|tostring|tonumber|unpack|select|error|pcall|xpcall|assert|require|setmetatable|getmetatable|rawget|rawset|rawequal|rawlen|loadstring|dofile|collectgarbage|newproxy"
+               r"|table\.(?:insert|remove|sort|concat|wipe|getn|setn|move|pack|unpack|foreach|foreachi|maxn)"
+               r"|string\.(?:format|find|match|gmatch|gsub|sub|len|byte|char|rep|reverse|upper|lower|trim|split|join|dump)"
+               r"|math\.(?:floor|ceil|abs|min|max|random|randomseed|sqrt|sin|cos|tan|asin|acos|atan|atan2|log|log10|exp|pow|fmod|huge|pi|maxinteger|mininteger)"
+               r"|bit\.(?:band|bor|bxor|bnot|lshift|rshift|arshift|mod|ldexp)"
+               r"|coroutine\.(?:create|resume|yield|status|wrap|running|isyieldable)"
+               r"|debug\.(?:traceback|getinfo|sethook|gethook|getlocal|setlocal|getupvalue|setupvalue|getmetatable|setmetatable|getregistry|getuservalue|setuservalue)"
                r"|table|string|math|bit|coroutine|debug|io|os"
-               r"|wipe|tinsert|tremove|tContains|CopyTable|Mixin|CreateFromMixins|CreateAndInitFromMixin"
-               r"|strsplit|strtrim|strsub|strlen|strfind|strmatch|strjoin|strrep|strupper|strlower|strbyte|strchar|strrev|strlenutf8|format|date|time|difftime"
-               r"|_G|_VERSION|__index|__newindex|__call|__tostring|__add|__sub|__mul|__div|__mod|__pow|__unm|__concat|__len|__eq|__lt|__le|__gc|__mode)\b"),
+               # WoW-specific Lua extensions
+               r"|wipe|tinsert|tremove|tContains|tInvert|tFilter|tAppendAll|CopyTable|MergeTable|Mixin|CreateFromMixins|CreateAndInitFromMixin|GenerateClosure"
+               r"|strsplit|strtrim|strsub|strlen|strfind|strmatch|strjoin|strrep|strupper|strlower|strbyte|strchar|strrev|strlenutf8|strconcat|strtrimaliases"
+               r"|format|date|time|difftime|fastrandom|issecure|forceinsecure|scrub|securecallfunction|secureexecuterange"
+               r"|_G|_VERSION|arg|__index|__newindex|__call|__tostring|__add|__sub|__mul|__div|__mod|__pow|__unm|__concat|__len|__eq|__lt|__le|__gc|__mode|__metatable"
+               # WeakAuras custom function environment
+               r"|aura_env|allstates|state|states|trigger_info|cloneId|triggernum|region|event|WeakAuras\.ScanEvents|WeakAuras\.GetData|WeakAuras\.Add|WeakAuras\.Delete|WeakAuras\.Rename"
+               r"|WeakAuras\.IsOptionsOpen|WeakAuras\.OpenOptions|WeakAuras\.CloseOptions|WeakAuras\.GetActiveConditions|WeakAuras\.GetTriggerStateForTrigger"
+               r"|WeakAuras\.regions|WeakAuras\.regionTypes|WeakAuras\.conditionTextTypes|WeakAuras\.triggerTypes|WeakAuras\.GetUniqueCloneId"
+               # Plater scripting environment
+               r"|Plater\.(?:NameplateAdded|NameplateRemoved|NameplateUpdated|CreateScriptHook|RunFunctionForAllNameplates|GetHealthCutoffValue|UpdateAllNameplateColors|UpdatePlateSize|UpdateBorderColor|SetBorderColor|AddExtraIcon|RemoveExtraIcon|GetAllShownPlates|DenyColorChange|AllowColorChange)"
+               r"|envTable|modTable|actorFrame|unitFrame|healthBar|castBar|buffFrame|plateFrame|unitId|namePlateFrame|instanceLocal"
+               # ElvUI plugin environment
+               r"|ElvUI|ElvUI\[\d+\]|E|L|V|P|G|EP|NP|UF|S|AB|B|CH|DT|DB|M|TT|Bags|NamePlates|UnitFrames|ActionBars|Chat|DataTexts|Skins|DataBars|Minimap"
+               r"|E\.(?:db|global|private|myclass|myname|mylevel|myrealm|myfaction|wowbuild|wowpatch|retail|classic|tbc|wrath|cata|Delay|StaticPopup_Show|PixelMode)"
+               # DBM environment
+               r"|DBM|DBM\.(?:InfoFrame|RangeCheck|BossHealth|Arrow|Flash|Nameplate|Timer|GetMod|GetModByName|RegisterMod|NewMod|CreatePullTimer|AddMsg|PlaySound|FlashClientIcon)"
+               r"|mod\.(?:vb|Options|CombatInfo|Stats)"
+               # BigWigs environment
+               r"|BigWigs\w*|BigWigsAPI|BigWigsLoader)\b"),
         # WoW API: Pattern-based matching for all major API families
         ("typ", r"\b(?:"
                # C_ Namespaces (catches ALL C_ APIs automatically)
@@ -258,120 +277,188 @@ _HIGHLIGHT_RULES = {
                r"|Unit\w+"
                # Frame creation & globals
                r"|CreateFrame|UIParent|WorldFrame|GameTooltip|GameTooltipTextLeft\d*|GameTooltipTextRight\d*|ItemRefTooltip|ShoppingTooltip[12]?"
-               r"|UISpecialFrames|SlashCmdList|StaticPopupDialogs|StaticPopup_Show|StaticPopup_Hide"
-               r"|InterfaceOptionsFrame|SettingsPanel|Settings\.RegisterAddOnCategory|Settings\.RegisterCanvasLayoutCategory|Settings\.RegisterCanvasLayoutSubcategory"
-               r"|DEFAULT_CHAT_FRAME|ChatFrame\d*|SELECTED_CHAT_FRAME"
-               # Libraries (Ace3, LibStub, CallbackHandler, etc.)
-               r"|LibStub|AceAddon|AceDB|AceDBOptions|AceEvent|AceConsole|AceHook|AceTimer|AceComm|AceSerializer|AceLocale|AceGUI|AceConfig|AceConfigDialog|AceConfigRegistry|AceConfigCmd"
-               r"|CallbackHandler|LibDataBroker|LibDBIcon|LibSharedMedia|LibDualSpec|LibQTip|LibCompress|LibDeflate|LibSerialize"
+               r"|UISpecialFrames|SlashCmdList|StaticPopupDialogs|StaticPopup_Show|StaticPopup_Hide|StaticPopup_FindVisible"
+               r"|InterfaceOptionsFrame|SettingsPanel|Settings\.Register\w+|Settings\.Open\w+|Settings\.Get\w+|Settings\.Set\w+"
+               r"|DEFAULT_CHAT_FRAME|ChatFrame\d*|SELECTED_CHAT_FRAME|FloatingChatFrame\w*|NUM_CHAT_WINDOWS"
+               r"|Minimap|MinimapCluster|MinimapBackdrop|MiniMapTracking\w*|MinimapZoneText\w*|GameTimeFrame|TimeManagerClockButton"
+               r"|ObjectiveTrackerFrame|WatchFrame|QuestLogFrame|QuestMapFrame|WorldMapFrame|FlightMapFrame"
+               r"|PlayerFrame|TargetFrame|FocusFrame|PetFrame|PartyMemberFrame\d*|CompactRaidFrameContainer|CompactUnitFrame\w*"
+               r"|MainMenuBar|ActionButton\d*|MultiBar\w+|BonusActionButton\d*|OverrideActionBar\w*|ExtraActionButton\d*|ZoneAbilityFrame"
+               r"|Bag\w*Frame\w*|ContainerFrame\w*|BankFrame\w*|ReagentBankFrame\w*|GuildBankFrame\w*|MailFrame\w*"
+               r"|SpellBookFrame|PlayerTalentFrame|TalentFrame|ClassTalentFrame|PlayerSpellsFrame"
+               r"|MerchantFrame|GossipFrame|QuestFrame|TradeFrame|TradeSkillFrame|ProfessionsFrame"
+               r"|AuctionHouseFrame|AuctionFrame|BlackMarketFrame"
+               r"|LFGDungeonReadyPopup|LFGListFrame|PVEFrame|LFDParentFrame|LFRParentFrame|RaidFinderFrame"
+               r"|PVPUIFrame|HonorFrame|ConquestFrame|WarGameStartButton|ArenaFrame"
+               r"|AchievementFrame|InspectFrame|DressUpFrame|WardrobeFrame|WardrobeCollectionFrame|TransmogFrame"
+               r"|EncounterJournal|CollectionsJournal|MountJournal|PetJournal|ToyBox|HeirloomJournal"
+               r"|GarrisonLandingPage\w*|OrderHallMissionFrame|CovenantMissionFrame|CovenantSanctum\w*"
+               r"|CharacterFrame|PaperDollFrame|ReputationFrame|CurrencyFrame|TokenFrame"
+               r"|CalendarFrame|TimeManagerFrame|StopwatchFrame"
+               r"|DropDownList\d*|UIDropDownMenu\w*|MenuUtil\.CreateContextMenu|MenuUtil\.CreateRootMenuDescription"
+               # Libraries (comprehensive)
+               r"|LibStub|AceAddon|AceDB|AceDBOptions|AceEvent|AceConsole|AceHook|AceTimer|AceComm|AceSerializer|AceLocale|AceGUI|AceConfig|AceConfigDialog|AceConfigRegistry|AceConfigCmd|AceBucket"
+               r"|CallbackHandler|LibDataBroker|LibDBIcon|LibSharedMedia|LibDualSpec|LibQTip|LibCompress|LibDeflate|LibSerialize|LibCustomGlow|LibDispellable"
+               r"|LibRangeCheck|LibClassicDurations|LibClassicCasterino|LibClassicSpellActionCount|LibHealComm|LibGroupInSpecT|LibThreatClassic2"
+               r"|LibScrollingTable|LibWindow|LibDialog|LibToast|LibActionButton|LibKeyBound|LibDDI|LibBabble\w*|LibGraph\w*|LibItemUpgrade\w*"
                # Spell/Aura
-               r"|GetSpell\w+|GetAura\w+|CastSpell\w+|IsSpell\w+|FindSpell\w+|IsUsableSpell|IsHarmfulSpell|IsHelpfulSpell|GetShapeshiftForm\w*"
-               r"|CombatLogGetCurrentEventInfo|CombatLog_Object_Is\w+"
+               r"|GetSpell\w+|GetAura\w+|CastSpell\w+|IsSpell\w+|FindSpell\w+|IsUsableSpell|IsHarmfulSpell|IsHelpfulSpell|GetShapeshiftForm\w*|GetTotemInfo"
+               r"|CombatLogGetCurrentEventInfo|CombatLog_Object_Is\w+|LoggingCombat|CombatTextSetActiveUnit"
                # Item/Inventory/Equipment
                r"|GetItem\w+|GetInventory\w+|GetContainer\w+|UseContainerItem|PickupContainerItem|EquipItemByName|IsEquippableItem|IsEquippedItem\w*|GetEquipmentSetInfo\w*"
-               r"|GetCoinTextureString|GetMoneyString|GetMoney|BreakUpLargeNumbers"
+               r"|GetCoinTextureString|GetMoneyString|GetMoney|BreakUpLargeNumbers|GetItemQualityColor|GetItemClassInfo|GetAuctionItemSubClasses"
+               r"|PickupItem|UseItemByName|IsUsableItem|IsConsumableItem|IsCurrentItem|ItemHasRange|IsItemInRange|GetItemCooldown|GetItemCount|GetItemIcon|GetItemSpell"
                # Action Bar
-               r"|GetAction\w+|IsUsableAction|IsCurrentAction|IsAutoRepeatAction|IsAttackAction|IsConsumableAction|HasAction|PickupAction|PlaceAction|GetBonusBarOffset"
+               r"|GetAction\w+|IsUsableAction|IsCurrentAction|IsAutoRepeatAction|IsAttackAction|IsConsumableAction|HasAction|PickupAction|PlaceAction|GetBonusBarOffset|GetActionBarPage|ChangeActionBarPage|GetPossessInfo|GetNumShapeshiftForms"
                # Talent/Spec
-               r"|GetSpecialization\w*|GetTalent\w+|GetNumSpecializations\w*|GetActiveSpecGroup"
+               r"|GetSpecialization\w*|GetTalent\w+|GetNumSpecializations\w*|GetActiveSpecGroup|GetNumSpecGroups|GetInspectSpecialization|GetSpecializationRole"
                # Group/Raid
                r"|GetNumGroupMembers|GetNumSubgroups|GetRaidRosterInfo|IsInRaid|IsInGroup|IsInInstance|GetInstanceInfo|GetDungeonDifficultyID|GetRaidDifficultyID"
-               r"|GetRealZoneText|GetSubZoneText|GetZoneText|GetMinimapZoneText"
+               r"|GetRealZoneText|GetSubZoneText|GetZoneText|GetMinimapZoneText|IsInGuildGroup|GetHomePartyInfo"
+               r"|GetLootMethod|GetMasterLootCandidate|GetNumLootItems|GetLootSlotInfo|GetLootSlotLink|LootSlot|CloseLoot|IsMasterLooter"
+               r"|GetReadyCheck\w*|DoReadyCheck|ConfirmReadyCheck|GetRaidTargetIndex|SetRaidTarget\w*"
                # Player info
-               r"|GetPlayer\w+|GetRealmName|GetNormalizedRealmName|GetServerTime|GetGameTime|GetSessionTime"
+               r"|GetPlayer\w+|GetRealmName|GetNormalizedRealmName|GetServerTime|GetGameTime|GetSessionTime|GetFramerate|GetNetStats|GetAvailableBandwidth|GetDownloadedPercentage|GetFileStreamingStatus|GetBackgroundLoadingStatus"
+               r"|GetMaxPlayerLevel|GetRestState|GetXPExhaustion|GetExpansionLevel|GetAccountExpansionLevel|CanUpgradeExpansion"
                # Communication
-               r"|SendChatMessage|SendAddonMessage|RegisterAddonMessagePrefix|JoinChannelByName|LeaveChannelByName|GetChannelName|ListChannelByName|SendSystemMessage"
+               r"|SendChatMessage|SendAddonMessage|RegisterAddonMessagePrefix|JoinChannelByName|LeaveChannelByName|GetChannelName|ListChannelByName|SendSystemMessage|ChatFrame_AddMessageEventFilter|ChatFrame_RemoveMessageEventFilter"
                # Secure functions & combat lockdown
-               r"|hooksecurefunc|securecall|securecallfunction|issecurevariable|issecure|forceinsecure|InCombatLockdown|UnitAffectingCombat"
-               # Frame methods (widget API)
+               r"|hooksecurefunc|securecall|securecallfunction|issecurevariable|issecure|forceinsecure|InCombatLockdown|UnitAffectingCombat|IsSecureCmd|RunScript"
+               # Frame widget API (comprehensive)
                r"|RegisterEvent|UnregisterEvent|RegisterAllEvents|UnregisterAllEvents|RegisterUnitEvent|IsEventRegistered"
                r"|SetScript|HookScript|GetScript|HasScript"
-               r"|SetPoint|SetAllPoints|ClearAllPoints|GetPoint|GetNumPoints|SetSize|SetWidth|SetHeight|GetWidth|GetHeight|GetSize|GetRect|GetCenter|GetLeft|GetRight|GetTop|GetBottom|GetBoundsRect"
+               r"|SetPoint|SetAllPoints|ClearAllPoints|GetPoint|GetNumPoints|AdjustPointsOffset"
+               r"|SetSize|SetWidth|SetHeight|GetWidth|GetHeight|GetSize|GetRect|GetCenter|GetLeft|GetRight|GetTop|GetBottom|GetBoundsRect|GetScaledRect"
                r"|Show|Hide|SetShown|IsShown|IsVisible|SetAlpha|GetAlpha|SetScale|GetScale|GetEffectiveScale|GetEffectiveAlpha"
-               r"|SetParent|GetParent|GetChildren|GetNumChildren|GetRegions|GetNumRegions|GetName|GetObjectType|IsObjectType"
-               r"|SetFrameStrata|GetFrameStrata|SetFrameLevel|GetFrameLevel|SetToplevel|Raise|Lower"
-               r"|EnableMouse|EnableMouseWheel|EnableKeyboard|SetMovable|SetResizable|SetClampedToScreen|SetClampRectInsets|StartMoving|StopMovingOrSizing|IsMovable|IsClamped"
+               r"|SetParent|GetParent|GetChildren|GetNumChildren|GetRegions|GetNumRegions|GetName|GetDebugName|GetObjectType|IsObjectType|IsForbidden|IsProtected|CanChangeProtectedState"
+               r"|SetFrameStrata|GetFrameStrata|SetFrameLevel|GetFrameLevel|SetToplevel|Raise|Lower|SetDepth|GetDepth"
+               r"|EnableMouse|EnableMouseWheel|EnableKeyboard|SetMovable|SetResizable|SetUserPlaced|SetClampedToScreen|SetClampRectInsets|StartMoving|StopMovingOrSizing|IsMovable|IsClamped|IsMouseOver|IsMouseEnabled"
                r"|SetBackdrop|SetBackdropColor|SetBackdropBorderColor|GetBackdrop|GetBackdropColor|GetBackdropBorderColor"
-               r"|SetText|GetText|SetTextColor|GetTextColor|SetFont|GetFont|SetFontObject|GetFontObject|SetJustifyH|SetJustifyV|SetWordWrap|SetNonSpaceWrap|SetMaxLetters|GetMaxLetters|SetTextInsets"
-               r"|SetTexture|GetTexture|SetTexCoord|GetTexCoord|SetVertexColor|GetVertexColor|SetDesaturated|SetBlendMode|SetRotation|SetAtlas|GetAtlas|SetColorTexture|SetGradient"
-               r"|SetValue|GetValue|SetMinMaxValues|GetMinMaxValues|SetStatusBarTexture|SetStatusBarColor|GetStatusBarColor|SetReverseFill|SetFillStyle"
-               r"|SetModel|SetDisplayInfo|SetCreature|SetUnit|SetItem|SetPortraitZoom|SetCamera|SetPosition|SetFacing|SetLight|SetSequence"
-               r"|SetCooldown|SetSwipeTexture|SetSwipeColor|SetDrawSwipe|SetDrawBling|SetDrawEdge|SetEdgeTexture|SetBlingTexture"
-               r"|ScrollToBottom|ScrollToTop|SetScrollChild|GetScrollChild|GetVerticalScroll|GetVerticalScrollRange|SetVerticalScroll|UpdateScrollChildRect"
-               r"|AddMessage|SetMaxLines|SetFading|SetFadeDuration|SetTimeVisible|SetInsertMode"
-               r"|SetFocus|ClearFocus|HasFocus|SetAutoFocus|SetMultiLine|SetNumeric|SetPassword|SetCountInvisibleLetters|HighlightText|GetCursorPosition|SetCursorPosition|Insert"
+               r"|SetText|GetText|SetTextColor|GetTextColor|SetFont|GetFont|SetFontObject|GetFontObject|SetJustifyH|SetJustifyV|SetWordWrap|SetNonSpaceWrap|SetMaxLetters|GetMaxLetters|SetTextInsets|GetStringWidth|GetStringHeight|GetWrappedWidth|SetTextHeight|GetLineHeight|GetNumLines|SetMaxLines|SetShadowColor|SetShadowOffset|GetShadowColor|GetShadowOffset|SetSpacing|GetSpacing|SetIndentedWordWrap"
+               r"|SetTexture|GetTexture|SetTexCoord|GetTexCoord|SetVertexColor|GetVertexColor|SetDesaturated|IsDesaturated|SetBlendMode|GetBlendMode|SetRotation|GetRotation|SetAtlas|GetAtlas|SetColorTexture|SetGradient|SetHorizTile|SetVertTile|SetMask|SetTexelSnappingBias|SetSnapToPixelGrid"
+               r"|SetValue|GetValue|SetMinMaxValues|GetMinMaxValues|SetStatusBarTexture|SetStatusBarColor|GetStatusBarColor|SetReverseFill|SetFillStyle|SetRotatesTexture|SetOrientation"
+               r"|SetModel|SetDisplayInfo|SetCreature|SetUnit|SetItem|SetPortraitZoom|SetCamera|SetPosition|SetFacing|SetLight|SetSequence|SetAnimation|HasAnimation|AdvanceTime|MakeCurrentCameraCustom|SetCustomCamera|SetPaused"
+               r"|SetCooldown|SetSwipeTexture|SetSwipeColor|SetDrawSwipe|SetDrawBling|SetDrawEdge|SetEdgeTexture|SetBlingTexture|SetCooldownDuration|SetCooldownUNIX|GetCooldownTimes|GetCooldownDuration"
+               r"|ScrollToBottom|ScrollToTop|SetScrollChild|GetScrollChild|GetVerticalScroll|GetVerticalScrollRange|SetVerticalScroll|UpdateScrollChildRect|GetHorizontalScroll|GetHorizontalScrollRange|SetHorizontalScroll"
+               r"|AddMessage|SetMaxLines|SetFading|SetFadeDuration|SetTimeVisible|SetInsertMode|GetCurrentLine|GetCurrentScroll|GetMaxLines|GetNumMessages|GetNumLinesDisplayed|PageUp|PageDown|ScrollUp|ScrollDown"
+               r"|SetFocus|ClearFocus|HasFocus|SetAutoFocus|SetMultiLine|SetNumeric|SetPassword|SetCountInvisibleLetters|HighlightText|GetCursorPosition|SetCursorPosition|Insert|AddHistoryLine|GetHistoryLines|ClearHistory|SetHistoryLines"
+               r"|CreateFontString|CreateTexture|CreateMaskTexture|CreateLine|CreateAnimationGroup"
+               r"|SetPropagateKeyboardInput|SetHyperlinksEnabled|SetHitRectInsets|GetHitRectInsets"
+               # Dropdown & Menu
+               r"|UIDropDownMenu_\w+|ToggleDropDownMenu|CloseDropDownMenus|EasyMenu"
+               r"|MenuUtil\.\w+"
                # Macro
-               r"|CreateMacro|GetMacro\w*|EditMacro|DeleteMacro|GetNumMacros|RunMacro|RunMacroText"
+               r"|CreateMacro|GetMacro\w*|EditMacro|DeleteMacro|GetNumMacros|RunMacro|RunMacroText|SecureCmdOptionParse"
                # Tooltip methods
-               r"|SetOwner|SetHyperlink|SetBagItem|SetInventoryItem|SetAction|SetSpellByID|SetItemByID|SetUnitBuff|SetUnitDebuff|SetUnitAura|SetRecipeResultItem|SetToyByItemID|SetMountBySpellID|SetCompanionPet|SetPetAction|SetCurrencyByID|SetCurrencyToken|SetQuestItem|SetQuestLogItem|AddLine|AddDoubleLine|ClearLines|FadeOut"
+               r"|SetOwner|SetHyperlink|SetBagItem|SetInventoryItem|SetAction|SetSpellByID|SetItemByID|SetUnitBuff|SetUnitDebuff|SetUnitAura|SetRecipeResultItem|SetToyByItemID|SetMountBySpellID|SetCompanionPet|SetPetAction|SetCurrencyByID|SetCurrencyToken|SetQuestItem|SetQuestLogItem|SetRecipeReagentItem|SetBackpackToken|SetMerchantItem|SetBuybackItem|SetTrainerService|SetAchievementByID|SetRuneforgeResultItem|SetConduit"
+               r"|AddLine|AddDoubleLine|AddTexture|ClearLines|FadeOut|SetPadding|SetMinimumWidth|AppendText|AddFontStrings"
                # Minimap & Map
-               r"|GetPlayerMapPosition|GetCursorPosition|GetScreenWidth|GetScreenHeight|GetPhysicalScreenSize|Minimap"
-               # Sound & Music
-               r"|PlaySound|PlaySoundFile|StopSound|PlayMusic|StopMusic|SetCVar|GetCVar|GetCVarBool|GetCVarDefault"
+               r"|GetPlayerMapPosition|GetCursorPosition|GetScreenWidth|GetScreenHeight|GetPhysicalScreenSize|Minimap|GetMinimapShape"
+               # Sound & Music & CVar
+               r"|PlaySound|PlaySoundFile|StopSound|PlayMusic|StopMusic|MuteSoundFile|UnmuteSoundFile"
+               r"|SetCVar|GetCVar|GetCVarBool|GetCVarDefault|GetCVarInfo|RegisterCVar|ResetTestCVars"
                # Nameplate
-               r"|GetNamePlate\w*|GetNamePlates"
+               r"|GetNamePlate\w*|GetNamePlates|SetNamePlateEnemySize|SetNamePlateFriendlySize|SetNamePlateSelfSize|GetNamePlateForUnit"
                # Animation system
-               r"|CreateAnimationGroup|SetDuration|SetSmoothing|SetOrder|SetFromAlpha|SetToAlpha|SetFromScale|SetToScale|SetOffset|Play|Stop|Pause|Finish|IsPlaying|IsStopped|IsPaused"
+               r"|CreateAnimationGroup|SetDuration|SetSmoothing|SetOrder|SetFromAlpha|SetToAlpha|SetFromScale|SetToScale|SetOffset|Play|Stop|Pause|Finish|IsPlaying|IsStopped|IsPaused|IsDone|IsDelaying|SetLooping|GetLooping|SetEndDelay|GetDuration"
+               # Targeting & Focus
+               r"|TargetUnit|AssistUnit|FocusUnit|ClearTarget|ClearFocus|FollowUnit|TargetNearestEnemy|TargetNearestFriend|TargetLastTarget|TargetLastEnemy|TargetLastFriend"
                # Global utility
-               r"|GetTime|debugprofilestop|GetTimePreciseSec|date|time|difftime|debugstack|geterrorhandler|seterrorhandler"
-               r"|GetLocale|GetAddOnInfo|GetAddOnMetadata|GetNumAddOns|IsAddOnLoaded|LoadAddOn|EnableAddOn|DisableAddOn"
-               r"|GetBuildInfo|GetCurrentRegion|IsOnGlueScreen|IsLoggedIn|IsTrialAccount|IsTrial|IsVeteranTrialAccount|InGlue"
-               r"|CreateColor|CreateColorFromHexString|CreateVector2D|CreateVector3D"
+               r"|GetTime|debugprofilestop|GetTimePreciseSec|debugstack|geterrorhandler|seterrorhandler"
+               r"|GetLocale|GetAddOnInfo|GetAddOnMetadata|GetNumAddOns|IsAddOnLoaded|IsAddOnLoadOnDemand|LoadAddOn|EnableAddOn|DisableAddOn|GetAddOnDependencies|GetAddOnOptionalDependencies"
+               r"|GetBuildInfo|GetCurrentRegion|IsOnGlueScreen|IsLoggedIn|IsTrialAccount|IsTrial|IsVeteranTrialAccount|InGlue|IsTestBuild|IsPublicBuild|IsGMClient"
+               r"|CreateColor|CreateColorFromHexString|CreateVector2D|CreateVector3D|CreateRectFromTable|CreateTextureMarkup|CreateAtlasMarkup|CreateSimpleTextureMarkup"
                r"|FramePool_GetOrCreateFrame|CreateFramePool|CreateObjectPool|CreateTexturePool|CreateFontStringPool"
-               r"|Enum|BackdropTemplateMixin|NineSlicePanelMixin|PixelUtil|Clamp|ClampedPercentageBetween|Lerp|PercentageBetween|Saturate|Round|Wrap"
-               # Popular addon frameworks
-               r"|WeakAuras|ElvUI|oUF|BigWigs\w*|DBM\w*|Details\w*|Plater\w*|TotalRP3\w*|Bagnon\w*|AdiBags\w*"
+               r"|Enum\.\w+|BackdropTemplateMixin|NineSlicePanelMixin|PixelUtil\.\w*|Clamp|ClampedPercentageBetween|Lerp|PercentageBetween|Saturate|Round|Wrap|ApproximatelyEqual"
+               # WoW constants & enums (LE_, NUM_, MAX_, ITEM_QUALITY_, etc.)
+               r"|LE_\w+|NUM_\w+|MAX_\w+|ITEM_QUALITY_\w+|ITEM_BIND_\w+|INVSLOT_\w+|INVTYPE_\w+|SPELL_SCHOOL_\w+|SCHOOL_MASK_\w+|COMBATLOG_\w+|SOUNDKIT\.\w*"
+               r"|CLASS_ICON_TCOORDS|RAID_CLASS_COLORS|FACTION_BAR_COLORS|ITEM_QUALITY_COLORS|PowerBarColor|SCHOOL_MASK_NONE|SCHOOL_MASK_PHYSICAL|SCHOOL_MASK_HOLY|SCHOOL_MASK_FIRE|SCHOOL_MASK_NATURE|SCHOOL_MASK_FROST|SCHOOL_MASK_SHADOW|SCHOOL_MASK_ARCANE"
+               r"|WOW_PROJECT_ID|WOW_PROJECT_MAINLINE|WOW_PROJECT_CLASSIC|WOW_PROJECT_BURNING_CRUSADE_CLASSIC|WOW_PROJECT_WRATH_CLASSIC|WOW_PROJECT_CATACLYSM_CLASSIC"
+               # Texture paths & Interface paths
+               r"|STANDARD_TEXT_FONT|NORMAL_FONT_COLOR|HIGHLIGHT_FONT_COLOR|RED_FONT_COLOR|GREEN_FONT_COLOR|GRAY_FONT_COLOR|YELLOW_FONT_COLOR|ORANGE_FONT_COLOR|LIGHTBLUE_FONT_COLOR|WHITE_FONT_COLOR"
+               # Popular addon framework globals
+               r"|WeakAuras\.\w*|ElvUI\.\w*|oUF\.\w*"
+               r"|BigWigs\w*|BigWigsAPI\w*|BigWigsLoader"
+               r"|DBM\.\w*|DBMod\w*"
+               r"|Details\w*|Details!?\.\w*|_detalhes"
+               r"|Plater\.\w*|PlaterDB"
+               r"|TotalRP3\.\w*|TRP3_API"
+               r"|Bagnon\.\w*|AdiBags\.\w*|ArkInventory\w*"
+               r"|Bartender4\w*|Dominos\w*"
+               r"|Grid2\w*|VuhDo\w*|Healbot\w*"
+               r"|Recount\w*|Skada\.\w*"
+               r"|Pawn\w*|SimulationCraft\w*|Raidbots\w*"
+               r"|HandyNotes\w*|TomTom\w*"
+               r"|Deadly\w*Boss\w*Mods"
                # Slash & Binding globals
-               r"|SLASH_\w+|BINDING_HEADER_\w+|BINDING_NAME_\w+|FONT_COLOR_CODE_CLOSE|HIGHLIGHT_FONT_COLOR_CODE|NORMAL_FONT_COLOR_CODE|RED_FONT_COLOR_CODE|GREEN_FONT_COLOR_CODE"
+               r"|SLASH_\w+|BINDING_HEADER_\w+|BINDING_NAME_\w+"
+               r"|FONT_COLOR_CODE_CLOSE|HIGHLIGHT_FONT_COLOR_CODE|NORMAL_FONT_COLOR_CODE|RED_FONT_COLOR_CODE|GREEN_FONT_COLOR_CODE"
                r")\b"),
         ("fn", r"(?<=function )\w[\w.:]*"),
         # WoW Events (pattern-based: catches most event names)
         ("dec", r"\b(?:"
                r"PLAYER_\w+|UNIT_\w+|SPELL_\w+|COMBAT_\w+|CHAT_MSG_\w+|GROUP_\w+|RAID_\w+|PARTY_\w+"
                r"|ZONE_\w+|AREA_\w+|WORLD_\w+|INSTANCE_\w+|ENCOUNTER_\w+"
-               r"|BAG_\w+|ITEM_\w+|EQUIPMENT_\w+|BANKFRAME_\w+|PLAYERBANKSLOTS_CHANGED|PLAYERBANKBAGSLOTS_CHANGED"
-               r"|QUEST_\w+|GOSSIP_\w+|TRADE_SKILL_\w+|CRAFT_\w+"
-               r"|ACTIONBAR_\w+|UPDATE_\w+|CURSOR_\w+|MODIFIER_STATE_CHANGED"
+               r"|BAG_\w+|ITEM_\w+|EQUIPMENT_\w+|BANKFRAME_\w+|PLAYERBANKSLOTS_CHANGED|PLAYERBANKBAGSLOTS_CHANGED|REAGENTBANK_\w+"
+               r"|QUEST_\w+|GOSSIP_\w+|TRADE_SKILL_\w+|CRAFT_\w+|PROFESSION_\w+"
+               r"|ACTIONBAR_\w+|UPDATE_\w+|CURSOR_\w+|MODIFIER_STATE_CHANGED|EXECUTE_CHAT_LINE|GLOBAL_MOUSE_\w+"
                r"|CHALLENGE_MODE_\w+|MYTHIC_PLUS_\w+|MYTHIC_DUNGEON_\w+"
-               r"|LFG_\w+|LFG_LIST_\w+|LFG_PROPOSAL_\w+"
-               r"|AUCTION_HOUSE_\w+|AUCTION_\w+"
-               r"|GUILD_\w+|CLUB_\w+|COMMUNITY_\w+"
-               r"|ACHIEVEMENT_\w+|CRITERIA_\w+"
-               r"|PVP_\w+|ARENA_\w+|BATTLEGROUND_\w+|BATTLEFIELD_\w+|HONOR_\w+"
-               r"|PET_\w+|COMPANION_\w+|MOUNT_\w+"
-               r"|TRANSMOG_\w+|TRANSMOGRIFY_\w+|HEIRLOOM_\w+|TOY_\w+"
+               r"|LFG_\w+|LFG_LIST_\w+|LFG_PROPOSAL_\w+|READY_CHECK\w*"
+               r"|AUCTION_HOUSE_\w+|AUCTION_\w+|COMMODITY_\w+"
+               r"|GUILD_\w+|CLUB_\w+|COMMUNITY_\w+|GUILD_MOTD|GUILD_ROSTER_UPDATE"
+               r"|ACHIEVEMENT_\w+|CRITERIA_\w+|TRACKED_ACHIEVEMENT_\w+"
+               r"|PVP_\w+|ARENA_\w+|BATTLEGROUND_\w+|BATTLEFIELD_\w+|HONOR_\w+|WAR_MODE_\w+"
+               r"|PET_\w+|COMPANION_\w+|MOUNT_\w+|PET_BATTLE_\w+"
+               r"|TRANSMOG_\w+|TRANSMOGRIFY_\w+|HEIRLOOM_\w+|TOY_\w+|COLLECTION_\w+"
                r"|GARRISON_\w+|SHIPMENT_\w+|ORDER_HALL_\w+"
-               r"|COVENANT_\w+|SOULBIND_\w+|CONDUIT_\w+"
+               r"|COVENANT_\w+|SOULBIND_\w+|CONDUIT_\w+|RUNEFORGE_\w+"
                r"|ADDON_LOADED|VARIABLES_LOADED|SAVED_VARIABLES_TOO_LARGE"
-               r"|LOADING_SCREEN_\w+|DISPLAY_SIZE_CHANGED|UI_SCALE_CHANGED|CVAR_UPDATE"
-               r"|LOOT_\w+|BONUS_ROLL_\w+|SHOW_LOOT_TOAST\w*"
-               r"|MAIL_\w+|CALENDAR_\w+|VOICE_\w+"
+               r"|LOADING_SCREEN_\w+|DISPLAY_SIZE_CHANGED|UI_SCALE_CHANGED|CVAR_UPDATE|CONSOLE_MESSAGE"
+               r"|LOOT_\w+|BONUS_ROLL_\w+|SHOW_LOOT_TOAST\w*|START_LOOT_ROLL|CONFIRM_LOOT_ROLL"
+               r"|MAIL_\w+|CALENDAR_\w+|VOICE_\w+|BN_\w+"
                r"|NAME_PLATE_\w+|FORBIDDEN_NAME_PLATE_\w+"
-               r"|MINIMAP_\w+|WORLD_MAP_\w+"
-               r"|TALENT_\w+|ACTIVE_TALENT_GROUP_CHANGED|PLAYER_TALENT_UPDATE|TRAIT_\w+"
+               r"|MINIMAP_\w+|WORLD_MAP_\w+|SUPER_TRACKING_\w+"
+               r"|TALENT_\w+|ACTIVE_TALENT_GROUP_CHANGED|PLAYER_TALENT_UPDATE|TRAIT_\w+|ACTIVE_COMBAT_CONFIG_CHANGED|TRAIT_CONFIG_\w+"
                r"|CURRENCY_\w+|TOKEN_\w+"
                r"|CINEMATIC_\w+|MOVIE_\w+|PLAY_MOVIE|STOP_MOVIE"
                r"|MERCHANT_\w+|TRAINER_\w+|REPAIR_\w+"
-               r"|BARBER_SHOP_\w+|DRESSING_ROOM_\w+"
+               r"|BARBER_SHOP_\w+|DRESSING_ROOM_\w+|INSPECT_\w+"
                r"|CHAT_\w+|LANGUAGE_\w+|CHANNEL_\w+"
+               r"|LOSS_OF_CONTROL_\w+|CROWD_CONTROL_\w+"
+               r"|SCENARIO_\w+|WORLD_QUEST_\w+|TASK_\w+"
+               r"|VIGNETTE_\w+|TREASURE_\w+|WEEKLY_REWARDS_\w+"
+               r"|SPELLS_CHANGED|LEARNED_SPELL_IN_TAB|SKILL_LINES_CHANGED|CHARACTER_POINTS_CHANGED|NEUTRAL_FACTION_SELECT_RESULT"
+               r"|SOCKET_INFO_\w+|GEM_\w+"
+               r"|VOID_STORAGE_\w+|VOID_DEPOSIT_WARNING|VOID_TRANSFER_DONE"
+               r"|BLACK_MARKET_\w+"
+               r"|CRAFTINGORDERS_\w+|CRAFTING_HOUSE_\w+"
+               r"|DELVES_\w+"
                r")\b"),
         ("num", r"\b\d+\.?\d*(?:e[+-]?\d+)?\b|0x[0-9a-fA-F]+\b"),
     ],
     "wowxml": [
-        ("cmt", r"<!--[\s\S]*?-->|##[^\n]*"),
+        ("cmt", r"<!--[\s\S]*?-->"),
         ("str", r'"[^"]*"|\'[^\']*\''),
         ("tag", r"</?[\w-]+|/?>"),
         ("attr", r"\b[\w-]+(?==)"),
         ("kw", r"\b(?:Ui|Frame|Button|FontString|Texture|StatusBar|ScrollFrame|EditBox|GameTooltip|Slider|CheckButton|ColorSelect"
                r"|Model|PlayerModel|DressUpModel|Cooldown|MessageFrame|ScrollingMessageFrame|SimpleHTML"
-               r"|Minimap|WorldFrame|MovieFrame|Browser|UnitButton|ActionButton"
-               r"|AnimationGroup|Animation|Alpha|Scale|Translation|Rotation|Path|LineScale|LineTranslation"
-               r"|Scripts|OnLoad|OnEvent|OnUpdate|OnShow|OnHide|OnClick|OnEnter|OnLeave|OnDragStart|OnDragStop|OnReceiveDrag|OnMouseDown|OnMouseUp|OnMouseWheel"
+               r"|Minimap|WorldFrame|MovieFrame|Browser|UnitButton|ActionButton|ItemButton|SecureActionButton\w*"
+               r"|AnimationGroup|Animation|Alpha|Scale|Translation|Rotation|Path|LineScale|LineTranslation|TextureCoordTranslation"
+               r"|Scripts|OnLoad|OnEvent|OnUpdate|OnShow|OnHide|OnClick|OnEnter|OnLeave|OnDragStart|OnDragStop|OnReceiveDrag|OnMouseDown|OnMouseUp|OnMouseWheel|OnValueChanged|OnTextChanged|OnEditFocusGained|OnEditFocusLost|OnSizeChanged|OnAttributeChanged|PreClick|PostClick"
                r"|Anchors|Anchor|Size|AbsDimension|RelDimension|Offset|Color|Gradient|MinColor|MaxColor|TexCoords"
-               r"|Layers|Layer|Frames|KeyValues|KeyValue"
-               r"|Backdrop|BackdropPieces|EdgeFile|BgFile|Insets"
-               r"|FontHeight|Shadow|NormalTexture|PushedTexture|HighlightTexture|DisabledTexture|CheckedTexture"
-               r"|Include|Script|BarTexture|BarColor|ThumbTexture)\b"),
+               r"|Layers|Layer|Frames|KeyValues|KeyValue|Attributes"
+               r"|Backdrop|BackdropPieces|EdgeFile|BgFile|Insets|TileSize|EdgeSize"
+               r"|FontHeight|Shadow|NormalTexture|PushedTexture|HighlightTexture|DisabledTexture|CheckedTexture|NormalFont|HighlightFont|DisabledFont"
+               r"|Include|Script|BarTexture|BarColor|ThumbTexture|ScrollChild"
+               r"|Inherits|parentKey|inherits|virtual|intrinsic|mixin|secureMixin|hidden|enableMouse|enableKeyboard|movable|resizable|clampedToScreen|toplevel|setAllPoints|registerForClicks|registerForDrag)\b"),
+    ],
+    "wowtoc": [
+        ("cmt", r"##[^\n]*"),
+        ("str", r'"[^"]*"|\'[^\']*\''),
+        ("kw", r"(?m)^##\s*(?:Interface|Title|Notes|Author|Version|SavedVariables|SavedVariablesPerCharacter|Dependencies|RequiredDeps|OptionalDeps|LoadOnDemand|LoadWith|LoadManagers|DefaultState|Secure|IconTexture|IconAtlas|AddonCompartmentFunc|AddonCompartmentFuncOnEnter|AddonCompartmentFuncOnLeave|Category|Group)\b"),
+        ("typ", r"(?m)^[\w\\/-]+\.(?:lua|xml|toc)\b"),
+        ("dec", r"(?m)^##\s*(?:X-\w+|X-Curse-\w+|X-Wago-\w+|X-WoWI-\w+)\b"),
     ],
 }
 
