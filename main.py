@@ -1,10 +1,12 @@
 """Unzensierter KI Chat - Main Entry Point."""
 
+import os
 import sys
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication
 
 from app.gui import MainWindow, DARK_STYLE, THEMES, _generate_stylesheet, _get_theme_colors, _set_active_theme
@@ -35,13 +37,17 @@ def main():
     logger.info("Starting Unzensierter KI Chat...")
 
     # Set OLLAMA_MODELS to store models next to the app (same drive)
-    import os
     app_dir = Path(__file__).resolve().parent
     models_dir = app_dir / "ollama_models"
     if not os.environ.get("OLLAMA_MODELS"):
         models_dir.mkdir(exist_ok=True)
         os.environ["OLLAMA_MODELS"] = str(models_dir)
         logger.info("OLLAMA_MODELS set to: %s", models_dir)
+
+    # High-DPI support for Windows 11 fractional scaling (125%, 150%, etc.)
+    QApplication.setHighDpiScaleFactorRoundingPolicy(
+        Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
+    )
 
     # Initialize Ollama manager with configured URL
     settings = load_settings()

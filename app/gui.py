@@ -59,6 +59,245 @@ _RE_LINK = re.compile(r"\[([^\]]+)\]\((https?://[^\s\)]+)\)")
 _RE_STRIKETHROUGH = re.compile(r"~~(.+?)~~")
 _RE_TABLE_SEP = re.compile(r"^\|[-\s:|]+\|$")
 
+# --- Syntax Highlighting (VS Code Dark+ inspired) ---
+
+_SH_COLORS = {
+    "kw": "#569cd6",     # keywords
+    "str": "#ce9178",    # strings
+    "cmt": "#6a9955",    # comments
+    "num": "#b5cea8",    # numbers
+    "fn": "#dcdcaa",     # function/class definitions
+    "typ": "#4ec9b0",    # types
+    "dec": "#c586c0",    # decorators/preprocessor
+    "bi": "#4fc1ff",     # builtins/constants
+    "tag": "#569cd6",    # HTML tags
+    "attr": "#9cdcfe",   # attributes
+    "sel": "#d7ba7d",    # CSS selectors
+    "prop": "#9cdcfe",   # CSS properties
+}
+
+_LANG_ALIASES = {
+    "py": "python", "python3": "python", "python2": "python",
+    "js": "javascript", "jsx": "javascript",
+    "ts": "typescript", "tsx": "typescript",
+    "sh": "bash", "shell": "bash", "zsh": "bash", "bat": "bash",
+    "rs": "rust", "go": "golang", "yml": "yaml",
+    "rb": "ruby", "cs": "csharp",
+    "cpp": "c++", "c": "c++", "h": "c++", "hpp": "c++",
+    "kt": "kotlin", "md": "markdown",
+}
+
+_HIGHLIGHT_RULES = {
+    "python": [
+        ("cmt", r"#[^\n]*"),
+        ("str", r'"""[\s\S]*?"""|\'\'\'[\s\S]*?\'\'\'|f"(?:\\.|[^"\\])*"|f\'(?:\\.|[^\'\\])*\'|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\''),
+        ("dec", r"@\w[\w.]*"),
+        ("kw", r"\b(?:def|class|if|elif|else|for|while|return|import|from|as|try|except|finally|raise|with|yield|lambda|and|or|not|in|is|pass|break|continue|del|global|nonlocal|assert|async|await)\b"),
+        ("bi", r"\b(?:None|True|False|self|cls|print|len|range|enumerate|zip|map|filter|sorted|reversed|type|isinstance|super|property|staticmethod|classmethod|__\w+__)\b"),
+        ("typ", r"\b(?:int|str|float|bool|list|dict|tuple|set|bytes|object|Exception|ValueError|TypeError|KeyError|IndexError|AttributeError|RuntimeError|OSError)\b"),
+        ("fn", r"(?<=def )\w+|(?<=class )\w+"),
+        ("num", r"\b\d+\.?\d*(?:e[+-]?\d+)?j?\b"),
+    ],
+    "javascript": [
+        ("cmt", r"//[^\n]*|/\*[\s\S]*?\*/"),
+        ("str", r'`(?:\\.|[^`\\])*`|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\''),
+        ("kw", r"\b(?:function|const|let|var|if|else|for|while|return|import|export|from|class|new|this|typeof|instanceof|try|catch|finally|throw|async|await|yield|switch|case|break|continue|default|delete|void|of|in|extends|static|get|set)\b"),
+        ("bi", r"\b(?:null|undefined|true|false|NaN|Infinity|console|document|window|process|module|require)\b"),
+        ("typ", r"\b(?:Array|Object|String|Number|Boolean|Promise|Map|Set|RegExp|Error|Date|Math|JSON|Symbol)\b"),
+        ("fn", r"(?<=function )\w+|(?<=class )\w+"),
+        ("num", r"\b\d+\.?\d*(?:e[+-]?\d+)?\b"),
+    ],
+    "typescript": [
+        ("cmt", r"//[^\n]*|/\*[\s\S]*?\*/"),
+        ("str", r'`(?:\\.|[^`\\])*`|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\''),
+        ("kw", r"\b(?:function|const|let|var|if|else|for|while|return|import|export|from|class|new|this|typeof|instanceof|try|catch|finally|throw|async|await|yield|switch|case|break|continue|default|delete|void|of|in|extends|implements|static|get|set|type|interface|enum|namespace|declare|abstract|as|is)\b"),
+        ("bi", r"\b(?:null|undefined|true|false|NaN|Infinity|console|document|window|process|module|require|keyof|readonly)\b"),
+        ("typ", r"\b(?:Array|Object|String|Number|Boolean|Promise|Map|Set|RegExp|Error|Date|Math|JSON|Symbol|any|string|number|boolean|void|never|unknown|Partial|Required|Readonly|Record|Pick|Omit)\b"),
+        ("fn", r"(?<=function )\w+|(?<=class )\w+"),
+        ("num", r"\b\d+\.?\d*(?:e[+-]?\d+)?\b"),
+    ],
+    "c++": [
+        ("cmt", r"//[^\n]*|/\*[\s\S]*?\*/"),
+        ("str", r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\''),
+        ("dec", r"#\w+"),
+        ("kw", r"\b(?:if|else|for|while|do|switch|case|break|continue|return|goto|struct|class|public|private|protected|virtual|override|static|const|volatile|extern|inline|typedef|template|typename|namespace|using|new|delete|throw|try|catch|auto|sizeof|enum|union)\b"),
+        ("typ", r"\b(?:void|int|char|short|long|float|double|bool|unsigned|signed|size_t|string|vector|map|set|pair|shared_ptr|unique_ptr|nullptr|NULL|true|false|std)\b"),
+        ("fn", r"(?<=\b)\w+(?=\s*\()"),
+        ("num", r"\b\d+\.?\d*(?:e[+-]?\d+)?[fFlLuU]?\b|0x[0-9a-fA-F]+\b"),
+    ],
+    "golang": [
+        ("cmt", r"//[^\n]*|/\*[\s\S]*?\*/"),
+        ("str", r'`[^`]*`|"(?:\\.|[^"\\])*"'),
+        ("kw", r"\b(?:func|package|import|var|const|type|struct|interface|map|chan|range|if|else|for|switch|case|default|break|continue|return|go|defer|select|fallthrough)\b"),
+        ("bi", r"\b(?:nil|true|false|iota|make|new|len|cap|append|copy|delete|close|panic|recover|print|println)\b"),
+        ("typ", r"\b(?:int|int8|int16|int32|int64|uint|uint8|uint16|uint32|uint64|float32|float64|byte|rune|string|bool|error|any)\b"),
+        ("fn", r"(?<=func )\w+"),
+        ("num", r"\b\d+\.?\d*(?:e[+-]?\d+)?\b|0x[0-9a-fA-F]+\b"),
+    ],
+    "rust": [
+        ("cmt", r"//[^\n]*|/\*[\s\S]*?\*/"),
+        ("str", r'"(?:\\.|[^"\\])*"'),
+        ("dec", r"#\[[\w:]+\]|#!\[[\w:]+\]"),
+        ("kw", r"\b(?:fn|let|mut|const|static|if|else|for|while|loop|match|return|break|continue|struct|enum|impl|trait|type|pub|crate|mod|use|as|in|ref|move|async|await|unsafe|where|dyn|extern)\b"),
+        ("bi", r"\b(?:self|Self|true|false|None|Some|Ok|Err|println!|print!|format!|vec!|todo!|panic!|assert!)\b"),
+        ("typ", r"\b(?:i8|i16|i32|i64|u8|u16|u32|u64|f32|f64|bool|char|str|String|Vec|Box|Option|Result|HashMap|HashSet|Rc|Arc|Mutex)\b"),
+        ("fn", r"(?<=fn )\w+"),
+        ("num", r"\b\d+\.?\d*(?:e[+-]?\d+)?\b|0x[0-9a-fA-F]+\b"),
+    ],
+    "java": [
+        ("cmt", r"//[^\n]*|/\*[\s\S]*?\*/"),
+        ("str", r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\''),
+        ("dec", r"@\w+"),
+        ("kw", r"\b(?:class|interface|enum|extends|implements|public|private|protected|static|final|abstract|synchronized|volatile|if|else|for|while|do|switch|case|break|continue|return|new|try|catch|finally|throw|throws|import|package|instanceof|super|this|void|default)\b"),
+        ("bi", r"\b(?:null|true|false|System)\b"),
+        ("typ", r"\b(?:int|long|short|byte|char|float|double|boolean|String|Integer|Long|Float|Double|Boolean|Object|List|Map|Set|ArrayList|HashMap|Optional)\b"),
+        ("fn", r"(?<=\b)\w+(?=\s*\()"),
+        ("num", r"\b\d+\.?\d*(?:e[+-]?\d+)?[fFdDlL]?\b|0x[0-9a-fA-F]+\b"),
+    ],
+    "kotlin": [
+        ("cmt", r"//[^\n]*|/\*[\s\S]*?\*/"),
+        ("str", r'"""[\s\S]*?"""|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\''),
+        ("dec", r"@\w+"),
+        ("kw", r"\b(?:fun|val|var|class|interface|object|data|sealed|enum|when|if|else|for|while|do|return|break|continue|throw|try|catch|finally|import|package|is|as|in|out|by|constructor|init|companion|suspend|override|open|abstract|private|protected|public|internal)\b"),
+        ("bi", r"\b(?:null|true|false|this|super|it|println|print)\b"),
+        ("typ", r"\b(?:Int|Long|Short|Byte|Float|Double|Boolean|Char|String|Unit|Nothing|Any|Array|List|Map|Set|MutableList|MutableMap|Pair)\b"),
+        ("fn", r"(?<=fun )\w+"),
+        ("num", r"\b\d+\.?\d*(?:e[+-]?\d+)?[fFL]?\b"),
+    ],
+    "csharp": [
+        ("cmt", r"//[^\n]*|/\*[\s\S]*?\*/"),
+        ("str", r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\''),
+        ("dec", r"\[\w+[\w,.\s]*\]"),
+        ("kw", r"\b(?:class|struct|interface|enum|namespace|using|if|else|for|foreach|while|do|switch|case|break|continue|return|new|try|catch|finally|throw|public|private|protected|internal|static|abstract|virtual|override|sealed|readonly|const|async|await|yield|var|ref|out|in|is|as|typeof|get|set|partial|where)\b"),
+        ("bi", r"\b(?:null|true|false|this|base|Console|Math)\b"),
+        ("typ", r"\b(?:int|long|short|byte|char|float|double|decimal|bool|string|object|void|dynamic|var|List|Dictionary|Task|Action|Func)\b"),
+        ("fn", r"(?<=\b)\w+(?=\s*\()"),
+        ("num", r"\b\d+\.?\d*(?:e[+-]?\d+)?[fFdDmM]?\b|0x[0-9a-fA-F]+\b"),
+    ],
+    "bash": [
+        ("cmt", r"#[^\n]*"),
+        ("str", r'"(?:\\.|[^"\\])*"|\'[^\']*\''),
+        ("kw", r"\b(?:if|then|else|elif|fi|for|while|do|done|case|esac|in|function|return|local|export|source|alias|set|unset|shift|exit|break|continue|eval|exec|trap|wait|read|echo|printf)\b"),
+        ("bi", r"\$\{?\w+\}?"),
+        ("num", r"\b\d+\b"),
+    ],
+    "html": [
+        ("cmt", r"<!--[\s\S]*?-->"),
+        ("str", r'"[^"]*"|\'[^\']*\''),
+        ("tag", r"</?[\w-]+|/?>"),
+        ("attr", r"\b[\w-]+(?==)"),
+    ],
+    "css": [
+        ("cmt", r"/\*[\s\S]*?\*/"),
+        ("str", r'"[^"]*"|\'[^\']*\''),
+        ("sel", r"[.#][\w-]+|@\w+"),
+        ("prop", r"[\w-]+(?=\s*:)"),
+        ("num", r"\b\d+\.?\d*(?:px|em|rem|%|vh|vw|s|ms|deg|fr)?\b"),
+        ("kw", r"\b(?:important|inherit|initial|unset|none|auto|block|inline|flex|grid|relative|absolute|fixed|sticky)\b"),
+    ],
+    "sql": [
+        ("cmt", r"--[^\n]*|/\*[\s\S]*?\*/"),
+        ("str", r"'(?:''|[^'])*'"),
+        ("kw", r"(?i)\b(?:SELECT|FROM|WHERE|AND|OR|NOT|IN|LIKE|BETWEEN|JOIN|LEFT|RIGHT|INNER|OUTER|ON|AS|INSERT|INTO|VALUES|UPDATE|SET|DELETE|CREATE|ALTER|DROP|TABLE|INDEX|VIEW|DATABASE|PRIMARY|KEY|FOREIGN|REFERENCES|UNIQUE|NULL|ORDER|BY|GROUP|HAVING|LIMIT|OFFSET|UNION|ALL|DISTINCT|EXISTS|CASE|WHEN|THEN|ELSE|END|IS|COUNT|SUM|AVG|MIN|MAX)\b"),
+        ("typ", r"(?i)\b(?:INTEGER|INT|BIGINT|SMALLINT|FLOAT|DOUBLE|DECIMAL|CHAR|VARCHAR|TEXT|BLOB|DATE|TIME|DATETIME|TIMESTAMP|BOOLEAN|SERIAL|UUID)\b"),
+        ("num", r"\b\d+\.?\d*\b"),
+    ],
+    "json": [
+        ("str", r'"(?:\\.|[^"\\])*"'),
+        ("num", r"\b-?\d+\.?\d*(?:e[+-]?\d+)?\b"),
+        ("bi", r"\b(?:true|false|null)\b"),
+    ],
+    "yaml": [
+        ("cmt", r"#[^\n]*"),
+        ("str", r'"(?:\\.|[^"\\])*"|\'[^\']*\''),
+        ("kw", r"^[\w.\-]+(?=\s*:)"),
+        ("bi", r"\b(?:true|false|null|yes|no)\b"),
+        ("num", r"\b-?\d+\.?\d*\b"),
+    ],
+    "ruby": [
+        ("cmt", r"#[^\n]*"),
+        ("str", r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\''),
+        ("kw", r"\b(?:def|class|module|if|elsif|else|unless|for|while|until|do|end|begin|rescue|ensure|raise|return|yield|require|include|extend|puts|print|p)\b"),
+        ("bi", r"\b(?:nil|true|false|self|super)\b"),
+        ("dec", r":\w+"),
+        ("num", r"\b\d+\.?\d*\b"),
+    ],
+    "php": [
+        ("cmt", r"//[^\n]*|#[^\n]*|/\*[\s\S]*?\*/"),
+        ("str", r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\''),
+        ("kw", r"\b(?:function|class|interface|trait|extends|implements|public|private|protected|static|abstract|final|if|else|elseif|for|foreach|while|do|switch|case|break|continue|return|new|try|catch|finally|throw|use|namespace|require|include|echo|print|isset|unset|empty|array|global|const|var)\b"),
+        ("bi", r"\$\w+|\b(?:null|true|false|self|parent)\b"),
+        ("typ", r"\b(?:int|float|string|bool|array|object|callable|void|mixed|never)\b"),
+        ("num", r"\b\d+\.?\d*\b"),
+    ],
+    "dockerfile": [
+        ("kw", r"^(?:FROM|RUN|CMD|EXPOSE|ENV|ADD|COPY|ENTRYPOINT|VOLUME|USER|WORKDIR|ARG|LABEL|ONBUILD|STOPSIGNAL|HEALTHCHECK|SHELL)\b"),
+        ("cmt", r"#[^\n]*"),
+        ("str", r'"(?:\\.|[^"\\])*"|\'[^\']*\''),
+    ],
+}
+
+
+def _syntax_highlight(code: str, lang: str) -> str:
+    """Apply syntax highlighting to code. Input is raw code, output is HTML with spans."""
+    lang = lang.lower().strip()
+    lang = _LANG_ALIASES.get(lang, lang)
+
+    rules = _HIGHLIGHT_RULES.get(lang)
+    if not rules:
+        return html.escape(code)
+
+    # Find all matching tokens
+    tokens = []
+    for color_key, pattern in rules:
+        color = _SH_COLORS[color_key]
+        try:
+            for m in re.finditer(pattern, code):
+                tokens.append((m.start(), m.end(), color))
+        except re.error:
+            continue
+
+    if not tokens:
+        return html.escape(code)
+
+    # Sort by position, longer matches first for ties
+    tokens.sort(key=lambda t: (t[0], -(t[1] - t[0])))
+
+    # Remove overlapping tokens
+    filtered = []
+    last_end = 0
+    for start, end, color in tokens:
+        if start >= last_end:
+            filtered.append((start, end, color))
+            last_end = end
+
+    # Build highlighted HTML
+    parts = []
+    pos = 0
+    for start, end, color in filtered:
+        if start > pos:
+            parts.append(html.escape(code[pos:start]))
+        parts.append(f'<span style="color:{color};">{html.escape(code[start:end])}</span>')
+        pos = end
+    if pos < len(code):
+        parts.append(html.escape(code[pos:]))
+
+    return "".join(parts)
+
+
+def _add_line_numbers(highlighted_html: str) -> str:
+    """Add line numbers to highlighted code. Input/output is HTML."""
+    lines = highlighted_html.split("\n")
+    if len(lines) <= 1:
+        return highlighted_html
+    width = len(str(len(lines)))
+    result = []
+    for i, line in enumerate(lines, 1):
+        num = str(i).rjust(width)
+        result.append(f'<span style="color:#3a3a3c;">{num}  </span>{line}')
+    return "\n".join(result)
+
+
 # Context window limits (in estimated tokens)
 CONTEXT_SOFT_LIMIT = 6000
 CONTEXT_HARD_LIMIT = 8000
@@ -69,7 +308,7 @@ QMainWindow, QDialog {
 }
 QWidget {
     color: #f5f5f7;
-    font-family: 'Segoe UI', -apple-system, 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Segoe UI Variable', 'Segoe UI', -apple-system, 'SF Pro Display', Arial, sans-serif;
     font-size: 13px;
 }
 QTextBrowser {
@@ -78,23 +317,26 @@ QTextBrowser {
     border-radius: 0px;
     padding: 16px;
     color: #f5f5f7;
-    selection-background-color: #0a84ff;
+    selection-background-color: rgba(10, 132, 255, 0.4);
+    selection-color: #ffffff;
 }
 QPlainTextEdit {
-    background-color: #1c1c1e;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background-color: #0d0d0f;
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 12px;
     padding: 12px 16px;
     color: #f5f5f7;
-    selection-background-color: #0a84ff;
+    font-family: Consolas, 'Cascadia Code', 'Segoe UI Variable', monospace;
+    font-size: 14px;
+    selection-background-color: rgba(10, 132, 255, 0.4);
 }
 QPlainTextEdit:focus {
     border: 1px solid rgba(10, 132, 255, 0.5);
 }
 QLineEdit {
     background-color: #1c1c1e;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
     padding: 8px 14px;
     color: #f5f5f7;
 }
@@ -105,9 +347,9 @@ QPushButton {
     background-color: #0a84ff;
     color: white;
     border: none;
-    border-radius: 10px;
+    border-radius: 8px;
     padding: 9px 20px;
-    font-weight: 500;
+    font-weight: 600;
     font-size: 13px;
 }
 QPushButton:hover {
@@ -121,23 +363,24 @@ QPushButton:disabled {
     color: #48484a;
 }
 QPushButton#secondary {
-    background-color: #2c2c2e;
-    color: #f5f5f7;
-    border: none;
+    background-color: #202024;
+    color: #d1d1d6;
+    border: 1px solid rgba(255, 255, 255, 0.04);
     padding: 7px 12px;
     font-size: 12px;
     min-height: 18px;
 }
 QPushButton#secondary:hover {
-    background-color: #3a3a3c;
+    background-color: #2c2c30;
+    border: 1px solid rgba(255, 255, 255, 0.08);
 }
 QPushButton#danger {
-    background-color: rgba(255, 69, 58, 0.15);
+    background-color: rgba(255, 69, 58, 0.12);
     color: #ff453a;
-    border: none;
+    border: 1px solid rgba(255, 69, 58, 0.1);
 }
 QPushButton#danger:hover {
-    background-color: rgba(255, 69, 58, 0.25);
+    background-color: rgba(255, 69, 58, 0.2);
 }
 QPushButton#small {
     background-color: transparent;
@@ -170,13 +413,13 @@ QPushButton#toggle_off {
 }
 QComboBox {
     background-color: #1c1c1e;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
     padding: 7px 14px;
     color: #f5f5f7;
 }
 QComboBox:hover {
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.12);
 }
 QComboBox::drop-down {
     border: none;
@@ -184,16 +427,16 @@ QComboBox::drop-down {
 }
 QComboBox QAbstractItemView {
     background-color: #2c2c2e;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
     color: #f5f5f7;
-    selection-background-color: #0a84ff;
+    selection-background-color: rgba(10, 132, 255, 0.3);
     padding: 4px;
 }
 QDoubleSpinBox {
     background-color: #1c1c1e;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
     padding: 7px;
     color: #f5f5f7;
 }
@@ -209,6 +452,7 @@ QLabel#title {
 QLabel#token_counter {
     color: #48484a;
     font-size: 11px;
+    font-family: Consolas, 'Cascadia Code', monospace;
 }
 QListWidget {
     background-color: transparent;
@@ -219,25 +463,25 @@ QListWidget {
 }
 QListWidget::item {
     padding: 10px 12px;
-    border-radius: 10px;
-    margin-bottom: 1px;
+    border-radius: 8px;
+    margin-bottom: 2px;
     border: none;
 }
 QListWidget::item:selected {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: rgba(10, 132, 255, 0.15);
     color: #f5f5f7;
 }
 QListWidget::item:hover:!selected {
-    background-color: rgba(255, 255, 255, 0.05);
+    background-color: rgba(255, 255, 255, 0.04);
 }
 QSplitter::handle {
-    background-color: rgba(255, 255, 255, 0.06);
+    background-color: transparent;
     width: 1px;
 }
 QProgressBar {
     background-color: #1c1c1e;
     border: none;
-    border-radius: 4px;
+    border-radius: 3px;
     text-align: center;
     color: #f5f5f7;
     font-size: 11px;
@@ -246,20 +490,20 @@ QProgressBar {
 }
 QProgressBar::chunk {
     background-color: #0a84ff;
-    border-radius: 4px;
+    border-radius: 3px;
 }
 QScrollBar:vertical {
     background-color: transparent;
-    width: 6px;
+    width: 8px;
     margin: 0;
 }
 QScrollBar::handle:vertical {
-    background-color: rgba(255, 255, 255, 0.15);
-    border-radius: 3px;
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
     min-height: 40px;
 }
 QScrollBar::handle:vertical:hover {
-    background-color: rgba(255, 255, 255, 0.25);
+    background-color: rgba(255, 255, 255, 0.18);
 }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
     height: 0;
@@ -269,20 +513,47 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
 }
 QScrollBar:horizontal {
     background-color: transparent;
-    height: 6px;
+    height: 8px;
 }
 QScrollBar::handle:horizontal {
-    background-color: rgba(255, 255, 255, 0.15);
-    border-radius: 3px;
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
 }
 QScrollBar::handle:horizontal:hover {
-    background-color: rgba(255, 255, 255, 0.25);
+    background-color: rgba(255, 255, 255, 0.18);
 }
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
     width: 0;
 }
 QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
     background: none;
+}
+QMenu {
+    background-color: #2c2c2e;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 4px;
+    color: #f5f5f7;
+}
+QMenu::item {
+    padding: 6px 20px;
+    border-radius: 4px;
+}
+QMenu::item:selected {
+    background-color: rgba(10, 132, 255, 0.2);
+}
+QMenu::separator {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.06);
+    margin: 4px 8px;
+}
+QToolTip {
+    background-color: #2c2c2e;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    color: #f5f5f7;
+    padding: 6px 10px;
+    font-size: 12px;
 }
 """
 
@@ -398,6 +669,12 @@ def markdown_to_html(text: str, msg_index: int = -1) -> str:
         block_counter[0] += 1
         lang = m.group(1) or ""
         code = m.group(2)
+        # Unescape HTML, apply syntax highlighting, add line numbers
+        code_raw = html.unescape(code)
+        if code_raw.endswith("\n"):
+            code_raw = code_raw[:-1]
+        highlighted = _syntax_highlight(code_raw, lang)
+        highlighted = _add_line_numbers(highlighted)
         copy_link = ""
         save_link = ""
         if msg_index >= 0:
@@ -423,10 +700,10 @@ def markdown_to_html(text: str, msg_index: int = -1) -> str:
             f'border-radius:12px; padding:14px 16px; margin:10px 0; '
             f'font-family:Consolas,\'Cascadia Code\',\'JetBrains Mono\',\'SF Mono\',Menlo,monospace; '
             f'font-size:13px; '
-            f'white-space:pre-wrap; word-wrap:break-word; color:#e5e5e5; line-height:1.6;">'
+            f'white-space:pre-wrap; word-wrap:break-word; color:#e5e5e5; line-height:1.5;">'
             f'<div style="margin-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px;">'
             f'{lang_badge}{copy_link}{save_link}</div>'
-            f'{code}</div>'
+            f'{highlighted}</div>'
         )
 
     text = _RE_CODE_BLOCK.sub(_replace_code_block, text)
@@ -527,39 +804,49 @@ def _build_message_html(role: str, content: str, time_str: str, streaming: bool 
 
 
 WELCOME_HTML = """
-<div style="text-align:center; padding:100px 40px; font-family:-apple-system,'SF Pro Display','Helvetica Neue',Arial,sans-serif;">
-    <div style="margin-bottom:32px;">
-        <div style="width:64px; height:64px; border-radius:16px; background:rgba(10,132,255,0.12);
-             display:inline-block; line-height:64px; font-size:28px;">&#9679;</div>
+<div style="text-align:center; padding:80px 40px; font-family:'Segoe UI Variable','Segoe UI',Arial,sans-serif;">
+    <div style="margin-bottom:24px;">
+        <div style="font-size:42px; letter-spacing:-1px; color:#f5f5f7; font-weight:700;">
+            <span style="color:#0a84ff;">&gt;_</span> KI Chat
+        </div>
     </div>
-    <h1 style="color:#f5f5f7; font-size:32px; font-weight:700; margin:0; letter-spacing:-0.5px;">
-        KI Chat
-    </h1>
     <p style="color:#86868b; font-size:15px; margin-top:8px; line-height:1.6; font-weight:400;">
-        Lokal. Privat. Ohne Einschr&auml;nkungen.
+        Dein lokaler Coding-Assistent. Privat. Ohne Einschr&auml;nkungen.
     </p>
-    <div style="margin-top:48px; max-width:360px; display:inline-block; text-align:left;">
-        <div style="padding:16px 20px; background:#1c1c1e; border-radius:14px; margin-bottom:8px;">
-            <span style="color:#86868b; font-size:11px; font-weight:600; letter-spacing:0.5px; text-transform:uppercase;">
+    <div style="margin-top:40px; max-width:420px; display:inline-block; text-align:left;">
+        <div style="padding:16px 20px; background:#0d0d0d; border:1px solid rgba(255,255,255,0.06); border-radius:12px; margin-bottom:8px;">
+            <span style="color:#569cd6; font-size:11px; font-weight:600; letter-spacing:0.5px; text-transform:uppercase;">
                 Schnellstart</span>
             <p style="color:#f5f5f7; font-size:13px; margin:8px 0 0 0; line-height:1.8;">
                 Schreibe eine Nachricht oder nutze<br>
-                <span style="color:#0a84ff;">Ctrl+N</span> f&uuml;r einen neuen Chat
+                <span style="font-family:Consolas,'Cascadia Code',monospace; background:rgba(255,255,255,0.06); padding:2px 6px; border-radius:4px; color:#0a84ff;">Ctrl+N</span> f&uuml;r einen neuen Chat
             </p>
         </div>
-        <div style="padding:16px 20px; background:#1c1c1e; border-radius:14px;">
-            <span style="color:#86868b; font-size:11px; font-weight:600; letter-spacing:0.5px; text-transform:uppercase;">
+        <div style="padding:16px 20px; background:#0d0d0d; border:1px solid rgba(255,255,255,0.06); border-radius:12px; margin-bottom:8px;">
+            <span style="color:#569cd6; font-size:11px; font-weight:600; letter-spacing:0.5px; text-transform:uppercase;">
                 Shortcuts</span>
             <table style="margin-top:8px; width:100%;">
-                <tr><td style="color:#0a84ff; font-size:12px; padding:2px 0; width:80px;">Ctrl+F</td>
+                <tr><td style="font-family:Consolas,monospace; color:#dcdcaa; font-size:12px; padding:3px 0; width:90px;">Ctrl+F</td>
                     <td style="color:#86868b; font-size:12px;">Suchen</td>
-                    <td style="color:#0a84ff; font-size:12px; width:80px;">Ctrl+?</td>
+                    <td style="font-family:Consolas,monospace; color:#dcdcaa; font-size:12px; width:90px;">Ctrl+?</td>
                     <td style="color:#86868b; font-size:12px;">Alle Shortcuts</td></tr>
-                <tr><td style="color:#0a84ff; font-size:12px; padding:2px 0;">F11</td>
+                <tr><td style="font-family:Consolas,monospace; color:#dcdcaa; font-size:12px; padding:3px 0;">F11</td>
                     <td style="color:#86868b; font-size:12px;">Vollbild</td>
-                    <td style="color:#0a84ff; font-size:12px;">Esc</td>
+                    <td style="font-family:Consolas,monospace; color:#dcdcaa; font-size:12px;">Esc</td>
                     <td style="color:#86868b; font-size:12px;">Stoppen</td></tr>
+                <tr><td style="font-family:Consolas,monospace; color:#dcdcaa; font-size:12px; padding:3px 0;">Ctrl+I</td>
+                    <td style="color:#86868b; font-size:12px;">Import</td>
+                    <td style="font-family:Consolas,monospace; color:#dcdcaa; font-size:12px;">Ctrl+E</td>
+                    <td style="color:#86868b; font-size:12px;">Export</td></tr>
             </table>
+        </div>
+        <div style="padding:16px 20px; background:#0d0d0d; border:1px solid rgba(255,255,255,0.06); border-radius:12px;">
+            <span style="color:#569cd6; font-size:11px; font-weight:600; letter-spacing:0.5px; text-transform:uppercase;">
+                Modell</span>
+            <p style="color:#86868b; font-size:12px; margin:8px 0 0 0; line-height:1.6;">
+                Standard: <span style="color:#4ec9b0;">qwen2.5-coder:32b</span><br>
+                Klicke unten auf den Modellnamen f&uuml;r Details
+            </p>
         </div>
     </div>
 </div>
@@ -1845,7 +2132,7 @@ class MainWindow(QMainWindow):
 
         # --- Sidebar ---
         sidebar = QWidget()
-        sidebar.setStyleSheet("background-color: #1c1c1e;")
+        sidebar.setStyleSheet("background-color: #111114; border-right: 1px solid rgba(255,255,255,0.04);")
         sidebar.setMaximumWidth(280)
         sidebar.setMinimumWidth(220)
         sidebar_layout = QVBoxLayout(sidebar)
