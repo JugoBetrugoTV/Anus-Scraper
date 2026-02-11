@@ -786,7 +786,12 @@ QToolTip {
 
 # Apple-inspired theme color palettes
 THEMES = {
-    "Blau (Standard)": {
+    "Neutral (Standard)": {
+        "primary": "#86868b", "primary_light": "#a1a1a6", "primary_rgb": "134,134,139",
+        "accent": "#30d158", "accent_rgb": "48,209,88",
+        "bg_dark": "#000000", "bg_mid": "#000000", "bg_light": "#1c1c1e", "bg_chat": "#000000",
+    },
+    "Blau": {
         "primary": "#0a84ff", "primary_light": "#409cff", "primary_rgb": "10,132,255",
         "accent": "#30d158", "accent_rgb": "48,209,88",
         "bg_dark": "#000000", "bg_mid": "#000000", "bg_light": "#1c1c1e", "bg_chat": "#000000",
@@ -826,11 +831,11 @@ def _generate_stylesheet(theme: dict) -> str:
 
 
 def _get_theme_colors(theme_name: str) -> dict:
-    return THEMES.get(theme_name, THEMES["Blau (Standard)"])
+    return THEMES.get(theme_name, THEMES["Neutral (Standard)"])
 
 
 # Active theme colors for inline HTML (updated at startup and on theme change)
-_active_theme: dict = THEMES["Blau (Standard)"]
+_active_theme: dict = THEMES["Neutral (Standard)"]
 
 
 def _set_active_theme(theme: dict):
@@ -1031,7 +1036,7 @@ WELCOME_HTML = """
 <div style="text-align:center; padding:80px 40px; font-family:'Segoe UI Variable','Segoe UI',Arial,sans-serif;">
     <div style="margin-bottom:24px;">
         <div style="font-size:42px; letter-spacing:-1px; color:#f5f5f7; font-weight:700;">
-            <span style="color:#0a84ff;">&gt;_</span> KI Chat
+            <span style="color:#a1a1a6;">&gt;_</span> KI Chat
         </div>
     </div>
     <p style="color:#86868b; font-size:15px; margin-top:8px; line-height:1.6; font-weight:400;">
@@ -1043,7 +1048,7 @@ WELCOME_HTML = """
                 Schnellstart</span>
             <p style="color:#f5f5f7; font-size:13px; margin:8px 0 0 0; line-height:1.8;">
                 Schreibe eine Nachricht oder nutze<br>
-                <span style="font-family:Consolas,'Cascadia Code',monospace; background:rgba(255,255,255,0.06); padding:2px 6px; border-radius:4px; color:#0a84ff;">Ctrl+N</span> f&uuml;r einen neuen Chat
+                <span style="font-family:Consolas,'Cascadia Code',monospace; background:rgba(255,255,255,0.06); padding:2px 6px; border-radius:4px; color:#f5f5f7;">Ctrl+N</span> f&uuml;r einen neuen Chat
             </p>
         </div>
         <div style="padding:16px 20px; background:#0d0d0d; border:1px solid rgba(255,255,255,0.06); border-radius:12px; margin-bottom:8px;">
@@ -1615,7 +1620,7 @@ class SettingsDialog(QDialog):
         self.theme_combo = QComboBox()
         self.theme_combo.addItems(THEMES.keys())
         settings = load_settings()
-        current_theme = settings.get("theme", "Blau (Standard)")
+        current_theme = settings.get("theme", "Neutral (Standard)")
         idx = self.theme_combo.findText(current_theme)
         if idx >= 0:
             self.theme_combo.setCurrentIndex(idx)
@@ -1860,7 +1865,7 @@ class ModelInfoDialog(QDialog):
             for label, value in fields:
                 if value:
                     html_parts.append(
-                        f'<tr><td style="color:#0a84ff; padding:6px 12px; font-weight:600;">{label}</td>'
+                        f'<tr><td style="color:{_active_theme["primary"]}; padding:6px 12px; font-weight:600;">{label}</td>'
                         f'<td style="color:#f5f5f7; padding:6px 12px;">{value}</td></tr>'
                     )
             html_parts.append("</table>")
@@ -1869,7 +1874,7 @@ class ModelInfoDialog(QDialog):
         if info.get("template"):
             html_parts.append(
                 f'<div style="margin-top:12px;">'
-                f'<span style="color:#0a84ff; font-weight:600;">Template:</span>'
+                f'<span style="color:{_active_theme["primary"]}; font-weight:600;">Template:</span>'
                 f'<pre style="background:#0d0d0d; padding:10px; border-radius:8px; '
                 f'color:#98989d; font-size:12px; white-space:pre-wrap; margin-top:4px;">'
                 f'{html_escape(info["template"][:500])}</pre></div>'
@@ -1879,7 +1884,7 @@ class ModelInfoDialog(QDialog):
         if info.get("parameters"):
             html_parts.append(
                 f'<div style="margin-top:12px;">'
-                f'<span style="color:#0a84ff; font-weight:600;">Parameter:</span>'
+                f'<span style="color:{_active_theme["primary"]}; font-weight:600;">Parameter:</span>'
                 f'<pre style="background:#0d0d0d; padding:10px; border-radius:8px; '
                 f'color:#98989d; font-size:12px; white-space:pre-wrap; margin-top:4px;">'
                 f'{html_escape(info["parameters"][:500])}</pre></div>'
@@ -1889,7 +1894,7 @@ class ModelInfoDialog(QDialog):
         if info.get("license"):
             html_parts.append(
                 f'<div style="margin-top:12px;">'
-                f'<span style="color:#0a84ff; font-weight:600;">Lizenz:</span>'
+                f'<span style="color:{_active_theme["primary"]}; font-weight:600;">Lizenz:</span>'
                 f'<pre style="background:#0d0d0d; padding:10px; border-radius:8px; '
                 f'color:#86868b; font-size:11px; white-space:pre-wrap; margin-top:4px;">'
                 f'{html_escape(info["license"][:300])}</pre></div>'
@@ -2632,7 +2637,7 @@ class MainWindow(QMainWindow):
         self.attach_img_btn.clicked.connect(self._attach_image)
         img_row.addWidget(self.attach_img_btn)
         self.image_indicator = QLabel("")
-        self.image_indicator.setStyleSheet("color: #0a84ff; font-size: 11px;")
+        self.image_indicator.setStyleSheet("color: #a1a1a6; font-size: 11px;")
         self.image_indicator.setVisible(False)
         img_row.addWidget(self.image_indicator)
         btn_col.addLayout(img_row)
@@ -2657,7 +2662,7 @@ class MainWindow(QMainWindow):
 
         self.model_label = QPushButton("")
         self.model_label.setObjectName("small")
-        self.model_label.setStyleSheet("color: #0a84ff; font-size: 12px; font-weight: 500;")
+        self.model_label.setStyleSheet(f"color: {_active_theme['primary']}; font-size: 12px; font-weight: 500;")
         self.model_label.setCursor(Qt.CursorShape.PointingHandCursor)
         self.model_label.clicked.connect(self._show_model_info)
         bottom_layout.addWidget(self.model_label)
@@ -2741,7 +2746,7 @@ class MainWindow(QMainWindow):
         self._pending_images.append(b64)
         count = len(self._pending_images)
         self.status_label.setText(f"{count} Bild(er) angehängt")
-        self.status_label.setStyleSheet("color: #0a84ff;")
+        self.status_label.setStyleSheet(f"color: {_active_theme['primary']};")
         self._update_image_label()
 
     def _add_image_from_path(self, path: Path):
@@ -2764,7 +2769,7 @@ class MainWindow(QMainWindow):
             self._pending_images.append(b64)
             self._update_image_label()
             self.status_label.setText(f"{len(self._pending_images)} Bild(er) angehängt")
-            self.status_label.setStyleSheet("color: #0a84ff;")
+            self.status_label.setStyleSheet(f"color: {_active_theme['primary']};")
         except Exception as e:
             self._show_temp_status(f"Bild konnte nicht geladen werden: {e}", "#ff453a", 3000)
 
@@ -2853,7 +2858,7 @@ class MainWindow(QMainWindow):
             if not QSystemTrayIcon.isSystemTrayAvailable():
                 return
             pixmap = QPixmap(16, 16)
-            pixmap.fill(QColor("#0a84ff"))
+            pixmap.fill(QColor(_active_theme["primary"]))
             self._tray_icon = QSystemTrayIcon(QIcon(pixmap), self)
             tray_menu = QMenu()
             show_action = tray_menu.addAction("Anzeigen")
@@ -3170,7 +3175,7 @@ class MainWindow(QMainWindow):
             "border: 1px solid rgba(255,255,255,0.1); "
             "border-radius: 10px; padding: 4px; }"
             "QMenu::item { padding: 8px 16px; border-radius: 6px; font-size: 13px; }"
-            "QMenu::item:selected { background-color: #0a84ff; color: white; }"
+            f"QMenu::item:selected {{ background-color: {_active_theme['primary']}; color: white; }}"
             "QMenu::separator { height: 1px; background: rgba(255,255,255,0.08); margin: 4px 8px; }"
         )
         s = self.sessions[row]
@@ -3508,23 +3513,14 @@ class MainWindow(QMainWindow):
         self._pending_tokens = True
 
     def _flush_streaming_render(self):
+        """Status-Updates waehrend KI generiert (kein Live-Text-Rendering)."""
         elapsed = time.monotonic() - self._stream_start_time
-        if self._pending_tokens:
-            self._pending_tokens = False
-            # Nur rendern wenn tatsaechlich neue Chunks dazukamen
-            chunk_count = len(self._streaming_chunks)
-            if chunk_count == self._last_rendered_chunk_count:
-                return
-            self._last_rendered_chunk_count = chunk_count
-            self._render_with_streaming()
-            # Live tokens/sec during streaming
-            token_count = len(self._streaming_chunks)
-            if elapsed > 0.5:
-                tps = token_count / elapsed
-                self.status_label.setText(f"KI schreibt... | {token_count} tokens | {tps:.0f} t/s")
-                self.status_label.setStyleSheet("color: #ff453a;")
-        elif elapsed > 3 and not self._streaming_chunks:
-            # Noch keine Tokens - Modell laedt wahrscheinlich
+        token_count = len(self._streaming_chunks)
+        if token_count > 0 and elapsed > 0.5:
+            tps = token_count / elapsed
+            self.status_label.setText(f"KI generiert... | {token_count} tokens | {tps:.0f} t/s")
+            self.status_label.setStyleSheet("color: #ff9f0a;")
+        elif elapsed > 3 and token_count == 0:
             secs = int(elapsed)
             self.status_label.setText(f"Modell laedt... {secs}s (Stopp = Escape)")
             self.status_label.setStyleSheet("color: #ff9f0a;")
@@ -3628,11 +3624,11 @@ class MainWindow(QMainWindow):
         self.send_btn.setVisible(False)
         self.stop_btn.setVisible(True)
         self.regen_btn.setVisible(False)
-        self.copy_last_btn.setVisible(True)  # Erlaubt Kopieren waehrend Streaming
+        self.copy_last_btn.setVisible(True)
         self.edit_last_btn.setVisible(False)
         self.input_field.setEnabled(False)
         self.status_label.setText("KI denkt nach... (erstes Laden kann 30-60s dauern)")
-        self.status_label.setStyleSheet("color: #ff453a;")
+        self.status_label.setStyleSheet("color: #ff9f0a;")
 
         settings = load_settings()
         num_predict = int(settings.get("num_predict", 0))
@@ -3651,7 +3647,7 @@ class MainWindow(QMainWindow):
         self.stream_worker.error_occurred.connect(self.on_stream_error)
         self.stream_worker.finished.connect(self._cleanup_stream_worker)
         self.stream_worker.start()
-        self._render_timer.start()
+        self._render_timer.start()  # Nur fuer Status-Updates, nicht Live-Render
 
     def _cleanup_stream_worker(self):
         """Clean up finished StreamWorker to prevent dangling C++ pointer."""
@@ -3897,7 +3893,7 @@ class MainWindow(QMainWindow):
             self.ollama_manager.base_url = new_url.rstrip("/")
             self.check_ollama_async()
             # Apply theme if changed
-            theme_name = settings.get("theme", "Blau (Standard)")
+            theme_name = settings.get("theme", "Neutral (Standard)")
             theme = _get_theme_colors(theme_name)
             _set_active_theme(theme)
             app = QApplication.instance()
@@ -4004,7 +4000,7 @@ class MainWindow(QMainWindow):
             f'body {{ background-color: #000; color: #f5f5f7; '
             f'font-family: -apple-system, "SF Pro Display", "Helvetica Neue", Arial, sans-serif; '
             f'padding: 20px; margin: 0; font-size: 14px; }}'
-            f'a {{ color: #0a84ff; }}'
+            f'a {{ color: {_active_theme["primary"]}; }}'
             f'table {{ border-collapse: collapse; margin: 8px 0; }}'
             f'th, td {{ border-bottom: 1px solid rgba(255,255,255,0.06); padding: 8px 12px; }}'
             f'th {{ color: #f5f5f7; font-weight: 600; text-align: left; }}'
