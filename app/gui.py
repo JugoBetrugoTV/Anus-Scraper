@@ -85,6 +85,7 @@ _LANG_ALIASES = {
     "rb": "ruby", "cs": "csharp",
     "cpp": "c++", "c": "c++", "h": "c++", "hpp": "c++",
     "kt": "kotlin", "md": "markdown",
+    "wow": "lua", "toc": "wowxml",
 }
 
 _HIGHLIGHT_RULES = {
@@ -234,6 +235,32 @@ _HIGHLIGHT_RULES = {
         ("kw", r"^(?:FROM|RUN|CMD|EXPOSE|ENV|ADD|COPY|ENTRYPOINT|VOLUME|USER|WORKDIR|ARG|LABEL|ONBUILD|STOPSIGNAL|HEALTHCHECK|SHELL)\b"),
         ("cmt", r"#[^\n]*"),
         ("str", r'"(?:\\.|[^"\\])*"|\'[^\']*\''),
+    ],
+    "lua": [
+        ("cmt", r"--\[\[[\s\S]*?\]\]|--[^\n]*"),
+        ("str", r'\[\[[\s\S]*?\]\]|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\''),
+        ("kw", r"\b(?:and|break|do|else|elseif|end|for|function|goto|if|in|local|not|or|repeat|return|then|until|while)\b"),
+        ("bi", r"\b(?:nil|true|false|self|print|pairs|ipairs|next|type|tostring|tonumber|unpack|select|error|pcall|xpcall|assert|require|setmetatable|getmetatable|rawget|rawset|rawequal|rawlen|table|string|math|io|os|coroutine|debug|_G|_VERSION|__index|__newindex|__call|__tostring|__add|__sub|__mul|__div|__mod|__pow|__unm|__concat|__len|__eq|__lt|__le|__gc)\b"),
+        ("typ", r"\b(?:CreateFrame|UIParent|GameTooltip|WorldFrame|UISpecialFrames|SlashCmdList|StaticPopupDialogs|LibStub|AceAddon|AceDB|AceEvent|AceConsole|AceHook|AceTimer|AceComm|AceSerializer|AceLocale"
+               r"|GetSpellInfo|GetItemInfo|GetPlayerInfoByGUID|UnitName|UnitClass|UnitLevel|UnitHealth|UnitHealthMax|UnitPower|UnitPowerMax|UnitGUID|UnitExists|UnitIsPlayer|UnitIsDead|UnitIsEnemy|UnitIsFriend|UnitAffectingCombat|UnitBuff|UnitDebuff|UnitAura|UnitCastingInfo|UnitChannelInfo"
+               r"|GetNumGroupMembers|IsInRaid|IsInGroup|IsInInstance|GetInstanceInfo|GetRealZoneText|GetSubZoneText|GetZoneText"
+               r"|GetContainerNumSlots|GetContainerItemInfo|GetContainerItemLink|UseContainerItem|PickupContainerItem"
+               r"|GetTime|debugprofilestop|GetCursorPosition|GetScreenWidth|GetScreenHeight"
+               r"|SendChatMessage|SendAddonMessage|RegisterAddonMessagePrefix|C_ChatInfo"
+               r"|C_Timer|C_Spell|C_Item|C_Map|C_MythicPlus|C_ChallengeMode|C_EncounterJournal|C_LFGList|C_Calendar|C_Club|C_Garrison|C_MountJournal|C_PetJournal|C_AchievementInfo|C_QuestLog|C_GossipInfo|C_TradeSkillUI|C_TransmogCollection|C_Covenants|C_Soulbinds|C_WeeklyRewards"
+               r"|hooksecurefunc|securecall|issecurevariable|InCombatLockdown|RegisterEvent|UnregisterEvent|RegisterAllEvents|SetScript|HookScript|GetScript"
+               r"|CreateMacro|GetMacroInfo|EditMacro|DeleteMacro"
+               r"|SLASH_\w+|BINDING_HEADER_\w+|BINDING_NAME_\w+)\b"),
+        ("fn", r"(?<=function )\w[\w.:]*"),
+        ("dec", r"\b(?:PLAYER_LOGIN|PLAYER_ENTERING_WORLD|PLAYER_LEAVING_WORLD|COMBAT_LOG_EVENT_UNFILTERED|CHAT_MSG_\w+|UNIT_HEALTH|UNIT_POWER_UPDATE|UNIT_AURA|SPELL_CAST_\w+|GROUP_ROSTER_UPDATE|ZONE_CHANGED\w*|BAG_UPDATE|PLAYER_REGEN_\w+|ADDON_LOADED|VARIABLES_LOADED|PLAYER_LOGOUT|ENCOUNTER_\w+|CHALLENGE_MODE_\w+|MYTHIC_PLUS_\w+|ACTIONBAR_\w+|QUEST_\w+|GOSSIP_\w+|TRADE_SKILL_\w+|AUCTION_HOUSE_\w+|LFG_\w+)\b"),
+        ("num", r"\b\d+\.?\d*(?:e[+-]?\d+)?\b|0x[0-9a-fA-F]+\b"),
+    ],
+    "wowxml": [
+        ("cmt", r"<!--[\s\S]*?-->|##[^\n]*"),
+        ("str", r'"[^"]*"|\'[^\']*\''),
+        ("tag", r"</?[\w-]+|/?>"),
+        ("attr", r"\b[\w-]+(?==)"),
+        ("kw", r"\b(?:Ui|Frame|Button|FontString|Texture|StatusBar|ScrollFrame|EditBox|GameTooltip|Slider|CheckButton|ColorSelect|Model|PlayerModel|DressUpModel|Cooldown|MessageFrame|ScrollingMessageFrame|SimpleHTML|Minimap|WorldFrame|MovieFrame|Browser|UnitButton|ActionButton)\b"),
     ],
 }
 
