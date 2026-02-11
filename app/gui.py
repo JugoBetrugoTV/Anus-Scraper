@@ -987,13 +987,14 @@ def _build_message_html(role: str, content: str, time_str: str, streaming: bool 
         delete_link = f'<a href="action:delete:{msg_index}" style="{link_style}">Entfernen</a>'
         return (
             f'<div style="margin:12px 0; padding:14px 18px; '
-            f'background:{p}; '
-            f'border-radius:18px 18px 4px 18px; '
+            f'background:#2c2c2e; '
+            f'border-left:3px solid {p}; '
+            f'border-radius:4px 18px 18px 4px; '
             f'max-width:85%; margin-left:auto; text-align:right; '
             f'word-wrap:break-word;">'
             f'{img_html}'
-            f'<div style="color:#ffffff; line-height:1.6; font-size:14px;">{rendered}</div>'
-            f'<div style="margin-top:8px; opacity:0.5; font-size:10px; color:#fff;">'
+            f'<div style="color:#f5f5f7; line-height:1.6; font-size:14px;">{rendered}</div>'
+            f'<div style="margin-top:8px; opacity:0.5; font-size:10px; color:#98989d;">'
             f'{edit_link} &middot; {copy_link} &middot; {delete_link} &middot; {time_str}</div>'
             f'</div>'
         )
