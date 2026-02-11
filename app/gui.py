@@ -3648,9 +3648,16 @@ class MainWindow(QMainWindow):
         self.stream_worker.token_received.connect(self.append_streaming_token)
         self.stream_worker.finished_streaming.connect(self.on_stream_done)
         self.stream_worker.error_occurred.connect(self.on_stream_error)
-        self.stream_worker.finished.connect(self.stream_worker.deleteLater)
+        self.stream_worker.finished.connect(self._cleanup_stream_worker)
         self.stream_worker.start()
         self._render_timer.start()
+
+    def _cleanup_stream_worker(self):
+        """Clean up finished StreamWorker to prevent dangling C++ pointer."""
+        worker = self.stream_worker
+        self.stream_worker = None
+        if worker:
+            worker.deleteLater()
 
     def on_stream_done(self, full_response: str):
         self._render_timer.stop()
@@ -4022,8 +4029,9 @@ class MainWindow(QMainWindow):
             if reply != QMessageBox.StandardButton.Yes:
                 event.ignore()
                 return
-            self.stream_worker.stop()
-            self.stream_worker.wait(2000)
+            if self.stream_worker:
+                self.stream_worker.stop()
+                self.stream_worker.wait(2000)
         # Save geometry + font zoom in one go
         settings = load_settings()
         g = self.geometry()
