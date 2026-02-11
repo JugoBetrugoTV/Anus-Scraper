@@ -2223,20 +2223,17 @@ class MainWindow(QMainWindow):
     def _zoom_in(self):
         self._font_zoom = min(200, self._font_zoom + 10)
         self._apply_zoom()
-        self.status_label.setText(f"Zoom: {self._font_zoom}%")
-        self.status_label.setStyleSheet("color: #30d158;")
+        self._show_temp_status(f"Zoom: {self._font_zoom}%", "#30d158")
 
     def _zoom_out(self):
         self._font_zoom = max(50, self._font_zoom - 10)
         self._apply_zoom()
-        self.status_label.setText(f"Zoom: {self._font_zoom}%")
-        self.status_label.setStyleSheet("color: #30d158;")
+        self._show_temp_status(f"Zoom: {self._font_zoom}%", "#30d158")
 
     def _zoom_reset(self):
         self._font_zoom = 100
         self._apply_zoom()
-        self.status_label.setText("Zoom: 100%")
-        self.status_label.setStyleSheet("color: #30d158;")
+        self._show_temp_status("Zoom: 100%", "#30d158")
 
     # --- In-chat search ---
 
@@ -2330,10 +2327,10 @@ class MainWindow(QMainWindow):
             if images_added:
                 parts.append(f"{images_added} Bild(er) angehängt")
             if skipped:
-                parts.append(f"{skipped} übersprungen")
+                parts.append(f"{skipped} uebersprungen (zu gross)")
             if parts:
-                self.status_label.setText(" | ".join(parts))
-                self.status_label.setStyleSheet("color: #30d158;")
+                color = "#ff9f0a" if skipped else "#30d158"
+                self._show_temp_status(" | ".join(parts), color, 3000)
             event.acceptProposedAction()
         else:
             super().dropEvent(event)
@@ -2491,7 +2488,7 @@ class MainWindow(QMainWindow):
             new_text, ok = QInputDialog.getMultiLineText(
                 self, "Nachricht bearbeiten", "Nachricht:", old_text
             )
-            if not ok or new_text.strip() == old_text:
+            if not ok or not new_text.strip() or new_text.strip() == old_text:
                 return
             old_images = msg.images.copy()
             self.current_session.messages = self.current_session.messages[:idx]
@@ -3019,7 +3016,7 @@ class MainWindow(QMainWindow):
         self.status_label.setStyleSheet("color: #ff453a;")
 
         settings = load_settings()
-        num_predict = settings.get("num_predict", 0)
+        num_predict = int(settings.get("num_predict", 0))
         old_worker = self.stream_worker
         self.stream_worker = StreamWorker(self.client, self.current_session, num_predict=num_predict)
         self.stream_worker.token_received.connect(self.append_streaming_token)
@@ -3047,12 +3044,15 @@ class MainWindow(QMainWindow):
         row = self.session_list.currentRow()
         self._update_session_list_item(row)
         self._reset_input_state()
-        if token_count > 0 and elapsed > 0:
+        if token_count > 0 and elapsed > 0.1:
             tps = token_count / elapsed
             self.status_label.setText(f"Bereit | {token_count} tokens in {elapsed:.1f}s ({tps:.0f} t/s)")
-        else:
+        elif elapsed > 0.1:
             self.status_label.setText(f"Bereit | Antwort in {elapsed:.1f}s")
+        else:
+            self.status_label.setText("Bereit")
         self.status_label.setStyleSheet("color: #30d158;")
+        self._update_model_label()
         # Auto-generate title after first exchange
         if (
             self.current_session
@@ -3204,7 +3204,7 @@ class MainWindow(QMainWindow):
         new_text, ok = QInputDialog.getMultiLineText(
             self, "Nachricht bearbeiten", "Nachricht:", old_text
         )
-        if not ok or new_text.strip() == old_text:
+        if not ok or not new_text.strip() or new_text.strip() == old_text:
             return
         old_images = old_msg.images.copy()
         self.current_session.messages = self.current_session.messages[:last_user_idx]
