@@ -1,10 +1,13 @@
 """Chat engine with Ollama API integration for local LLM inference."""
 
 import json
+import logging
 import requests
 from typing import Generator
 
 DEFAULT_BASE_URL = "http://localhost:11434"
+
+_log = logging.getLogger(__name__)
 
 
 class OllamaClient:
@@ -16,6 +19,13 @@ class OllamaClient:
 
     def set_base_url(self, url: str):
         self.base_url = url.rstrip("/")
+
+    def close(self):
+        """Close the underlying HTTP session to free resources."""
+        try:
+            self.session.close()
+        except Exception:
+            pass
 
     def is_available(self) -> bool:
         try:
@@ -30,7 +40,8 @@ class OllamaClient:
             r.raise_for_status()
             data = r.json()
             return [m["name"] for m in data.get("models", [])]
-        except Exception:
+        except Exception as e:
+            _log.debug("list_models fehlgeschlagen: %s", e)
             return []
 
     def chat_stream(
@@ -58,7 +69,11 @@ class OllamaClient:
         try:
             for line in r.iter_lines():
                 if line:
-                    chunk = json.loads(line)
+                    try:
+                        chunk = json.loads(line)
+                    except json.JSONDecodeError:
+                        _log.debug("Ungueltige JSON-Zeile im Stream: %s", line[:100])
+                        continue
                     token = chunk.get("message", {}).get("content", "")
                     if token:
                         yield token
@@ -87,7 +102,8 @@ class OllamaClient:
             data = r.json()
             title = data.get("message", {}).get("content", "").strip().strip('"').strip(".")
             return title[:50] if title else ""
-        except Exception:
+        except Exception as e:
+            _log.debug("generate_title fehlgeschlagen: %s", e)
             return ""
 
     def show_model(self, model: str) -> dict:
@@ -100,7 +116,8 @@ class OllamaClient:
             )
             r.raise_for_status()
             return r.json()
-        except Exception:
+        except Exception as e:
+            _log.debug("show_model fehlgeschlagen fuer '%s': %s", model, e)
             return {}
 
     def delete_model(self, model: str) -> bool:
@@ -112,7 +129,8 @@ class OllamaClient:
                 timeout=10,
             )
             return r.status_code == 200
-        except Exception:
+        except Exception as e:
+            _log.warning("delete_model fehlgeschlagen fuer '%s': %s", model, e)
             return False
 
     def pull_model(self, model: str) -> Generator[dict, None, None]:

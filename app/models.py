@@ -1,10 +1,13 @@
 """Data models for the chat application."""
 
 import json
+import logging
 import os
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+
+_log = logging.getLogger(__name__)
 
 # Store data next to the app (portable) or in user home as fallback
 _APP_DIR = Path(__file__).resolve().parent.parent
@@ -23,9 +26,12 @@ PROMPTS_PATH = _DATA_DIR / "prompts.json"
 def load_settings() -> dict:
     if SETTINGS_PATH.exists():
         try:
-            return json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
-        except Exception:
-            pass
+            data = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                return data
+            _log.warning("settings.json hat ungueltiges Format (kein dict), ignoriert")
+        except (json.JSONDecodeError, OSError) as e:
+            _log.warning("settings.json konnte nicht geladen werden: %s", e)
     return {}
 
 
@@ -37,9 +43,11 @@ def save_settings(settings: dict):
 def load_prompts() -> dict:
     if PROMPTS_PATH.exists():
         try:
-            return json.loads(PROMPTS_PATH.read_text(encoding="utf-8"))
-        except Exception:
-            pass
+            data = json.loads(PROMPTS_PATH.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                return data
+        except (json.JSONDecodeError, OSError) as e:
+            _log.warning("prompts.json konnte nicht geladen werden: %s", e)
     return {}
 
 
@@ -70,10 +78,15 @@ class Message:
 
     @classmethod
     def from_dict(cls, data: dict) -> "Message":
+        ts = data.get("timestamp", "")
+        try:
+            timestamp = datetime.fromisoformat(ts) if ts else datetime.now()
+        except (ValueError, TypeError):
+            timestamp = datetime.now()
         return cls(
-            role=data["role"],
-            content=data["content"],
-            timestamp=datetime.fromisoformat(data["timestamp"]),
+            role=data.get("role", "user"),
+            content=data.get("content", ""),
+            timestamp=timestamp,
             images=data.get("images", []),
             rating=data.get("rating", 0),
         )
@@ -133,17 +146,28 @@ class ChatSession:
 
     @classmethod
     def from_dict(cls, data: dict) -> "ChatSession":
+        ca = data.get("created_at", "")
+        try:
+            created_at = datetime.fromisoformat(ca) if ca else datetime.now()
+        except (ValueError, TypeError):
+            created_at = datetime.now()
         session = cls(
-            name=data["name"],
+            name=data.get("name", "Unbenannt"),
             model=data.get("model", "qwen2.5-coder:32b"),
             system_prompt=data.get("system_prompt", ""),
-            temperature=data.get("temperature", 0.8),
-            created_at=datetime.fromisoformat(data["created_at"]),
+            temperature=data.get("temperature", 0.4),
+            created_at=created_at,
             session_id=data.get("session_id", ""),
             pinned=data.get("pinned", False),
             folder=data.get("folder", ""),
         )
-        session.messages = [Message.from_dict(m) for m in data.get("messages", [])]
+        messages = []
+        for m in data.get("messages", []):
+            try:
+                messages.append(Message.from_dict(m))
+            except Exception as e:
+                _log.warning("Nachricht konnte nicht geladen werden: %s", e)
+        session.messages = messages
         return session
 
     def save(self):
@@ -163,7 +187,8 @@ class ChatSession:
         for f in sorted(SAVE_DIR.glob("*.json")):
             try:
                 sessions.append(cls.load(f))
-            except Exception:
+            except Exception as e:
+                _log.warning("Session-Datei konnte nicht geladen werden: %s (%s)", f.name, e)
                 continue
         return sessions
 

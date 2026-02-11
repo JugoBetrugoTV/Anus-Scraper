@@ -1144,7 +1144,7 @@ class StreamWorker(QThread):
         except Exception as e:
             if not self._stop:
                 self.error_occurred.emit(str(e))
-                return
+            return
         self.finished_streaming.emit("".join(chunks))
 
     def stop(self):
@@ -3532,6 +3532,14 @@ class MainWindow(QMainWindow):
         settings = load_settings()
         num_predict = int(settings.get("num_predict", 0))
         old_worker = self.stream_worker
+        if old_worker:
+            try:
+                old_worker.token_received.disconnect()
+                old_worker.finished_streaming.disconnect()
+                old_worker.error_occurred.disconnect()
+            except (TypeError, RuntimeError):
+                pass
+            old_worker.deleteLater()
         self.stream_worker = StreamWorker(self.client, self.current_session, num_predict=num_predict)
         self.stream_worker.token_received.connect(self.append_streaming_token)
         self.stream_worker.finished_streaming.connect(self.on_stream_done)
@@ -3539,14 +3547,12 @@ class MainWindow(QMainWindow):
         self.stream_worker.finished.connect(self.stream_worker.deleteLater)
         self.stream_worker.start()
         self._render_timer.start()
-        if old_worker:
-            old_worker.deleteLater()
 
     def on_stream_done(self, full_response: str):
         self._render_timer.stop()
         elapsed = time.monotonic() - self._stream_start_time
         token_count = len(self._streaming_chunks)
-        if self.current_session and full_response:
+        if self.current_session and full_response and full_response.strip():
             self.current_session.messages.append(
                 Message(role="assistant", content=full_response)
             )
@@ -3912,7 +3918,7 @@ class MainWindow(QMainWindow):
                 session.save()
         if self._tray_icon:
             self._tray_icon.hide()
-        self.client.session.close()
+        self.client.close()
         # Stop our managed Ollama process if we started it
         if self.ollama_manager.is_managed_process:
             self.ollama_manager.stop_server()
