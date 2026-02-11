@@ -243,6 +243,7 @@ echo    App startet... Viel Spass!
 echo  ========================================
 echo.
 
+cd /d "%BASEDIR%"
 "%PYPYTHON%" "%BASEDIR%main.py"
 
 echo.

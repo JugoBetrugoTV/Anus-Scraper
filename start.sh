@@ -184,4 +184,5 @@ echo "    App startet... Viel Spass!"
 echo "  ========================================"
 echo ""
 
+cd "$SCRIPT_DIR"
 "$VPYTHON" "$SCRIPT_DIR/main.py"

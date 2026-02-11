@@ -6,6 +6,12 @@ import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+# Sicherstellen dass das Projektverzeichnis im Python-Pfad ist,
+# egal von wo main.py gestartet wird (z.B. start.bat, Shortcut, etc.)
+_APP_ROOT = str(Path(__file__).resolve().parent)
+if _APP_ROOT not in sys.path:
+    sys.path.insert(0, _APP_ROOT)
+
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication
 
