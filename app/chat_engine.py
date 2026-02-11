@@ -36,7 +36,7 @@ class OllamaClient:
     def chat_stream(
         self,
         messages: list[dict],
-        model: str = "dolphin-mistral",
+        model: str = "qwen2.5-coder:32b",
         temperature: float = 0.8,
     ) -> Generator[str, None, None]:
         """Stream chat completion tokens from Ollama."""
@@ -67,7 +67,7 @@ class OllamaClient:
         finally:
             r.close()
 
-    def generate_title(self, user_msg: str, assistant_msg: str, model: str = "dolphin-mistral") -> str:
+    def generate_title(self, user_msg: str, assistant_msg: str, model: str = "qwen2.5-coder:32b") -> str:
         """Generate a short chat title from the first exchange."""
         try:
             r = self.session.post(

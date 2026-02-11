@@ -31,6 +31,14 @@ if exist "%PYPYTHON%" (
     goto python_ready
 )
 
+:: py Launcher testen (pruefen dass es echtes Python ist, nicht Store-Alias)
+py -3 --version >nul 2>&1
+if %errorlevel%==0 (
+    set "PYPYTHON=py -3"
+    echo  [OK] System-Python gefunden
+    goto python_ready
+)
+
 py --version >nul 2>&1
 if %errorlevel%==0 (
     set "PYPYTHON=py"
@@ -137,7 +145,14 @@ timeout /t 3 /nobreak >nul
 
 :: Ollama neu starten mit unserer OLLAMA_MODELS Variable
 echo  [*] Starte Ollama Server...
-start "ollama" /MIN cmd /c "ollama serve"
+
+:: Finde Ollama-Pfad (winget installiert nach LOCALAPPDATA)
+set "OLLAMA_CMD=ollama"
+where ollama >nul 2>&1
+if %errorlevel% neq 0 (
+    if exist "%LOCALAPPDATA%\Programs\Ollama\ollama.exe" set "OLLAMA_CMD=%LOCALAPPDATA%\Programs\Ollama\ollama.exe"
+)
+start "ollama" /MIN cmd /c "%OLLAMA_CMD% serve"
 
 :: Warten bis Server bereit ist
 set "WAIT=0"

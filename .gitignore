@@ -20,4 +20,5 @@ ENV/
 *.swo
 python/
 ollama_models/
+data/
 *.zip

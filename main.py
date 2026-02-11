@@ -13,7 +13,8 @@ from app.models import load_settings, save_settings
 
 
 def setup_logging():
-    log_dir = Path.home() / ".ki-chat" / "logs"
+    app_dir = Path(__file__).resolve().parent
+    log_dir = app_dir / "data" / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     logging.basicConfig(
         level=logging.DEBUG,

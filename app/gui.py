@@ -69,7 +69,7 @@ QMainWindow, QDialog {
 }
 QWidget {
     color: #f5f5f7;
-    font-family: -apple-system, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Segoe UI', -apple-system, 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
     font-size: 13px;
 }
 QTextBrowser {
@@ -419,18 +419,20 @@ def markdown_to_html(text: str, msg_index: int = -1) -> str:
             )
         return (
             f'<div style="background-color:#0d0d0d; '
-            f'border-radius:12px; padding:14px 16px; margin:8px 0; '
-            f'font-family:\'SF Mono\',\'JetBrains Mono\',Menlo,Consolas,monospace; font-size:12px; '
-            f'white-space:pre-wrap; color:#e5e5e5; line-height:1.55;">'
-            f'<div style="margin-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:6px;">'
+            f'border:1px solid rgba(255,255,255,0.08); '
+            f'border-radius:12px; padding:14px 16px; margin:10px 0; '
+            f'font-family:Consolas,\'Cascadia Code\',\'JetBrains Mono\',\'SF Mono\',Menlo,monospace; '
+            f'font-size:13px; '
+            f'white-space:pre-wrap; word-wrap:break-word; color:#e5e5e5; line-height:1.6;">'
+            f'<div style="margin-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px;">'
             f'{lang_badge}{copy_link}{save_link}</div>'
             f'{code}</div>'
         )
 
     text = _RE_CODE_BLOCK.sub(_replace_code_block, text)
     text = _RE_INLINE_CODE.sub(
-        f'<code style="background-color:rgba(255,255,255,0.08); padding:2px 6px; border-radius:5px; '
-        f'font-family:\'SF Mono\',Menlo,Consolas,monospace; font-size:12px; color:#e5e5e5;">\\1</code>',
+        f'<code style="background-color:rgba(255,255,255,0.1); padding:2px 7px; border-radius:5px; '
+        f'font-family:Consolas,\'Cascadia Code\',\'SF Mono\',Menlo,monospace; font-size:13px; color:#e5e5e5;">\\1</code>',
         text,
     )
     text = _RE_LINK.sub(
