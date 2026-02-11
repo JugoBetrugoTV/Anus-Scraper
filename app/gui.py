@@ -240,19 +240,121 @@ _HIGHLIGHT_RULES = {
         ("cmt", r"--\[\[[\s\S]*?\]\]|--[^\n]*"),
         ("str", r'\[\[[\s\S]*?\]\]|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\''),
         ("kw", r"\b(?:and|break|do|else|elseif|end|for|function|goto|if|in|local|not|or|repeat|return|then|until|while)\b"),
-        ("bi", r"\b(?:nil|true|false|self|print|pairs|ipairs|next|type|tostring|tonumber|unpack|select|error|pcall|xpcall|assert|require|setmetatable|getmetatable|rawget|rawset|rawequal|rawlen|table|string|math|io|os|coroutine|debug|_G|_VERSION|__index|__newindex|__call|__tostring|__add|__sub|__mul|__div|__mod|__pow|__unm|__concat|__len|__eq|__lt|__le|__gc)\b"),
-        ("typ", r"\b(?:CreateFrame|UIParent|GameTooltip|WorldFrame|UISpecialFrames|SlashCmdList|StaticPopupDialogs|LibStub|AceAddon|AceDB|AceEvent|AceConsole|AceHook|AceTimer|AceComm|AceSerializer|AceLocale"
-               r"|GetSpellInfo|GetItemInfo|GetPlayerInfoByGUID|UnitName|UnitClass|UnitLevel|UnitHealth|UnitHealthMax|UnitPower|UnitPowerMax|UnitGUID|UnitExists|UnitIsPlayer|UnitIsDead|UnitIsEnemy|UnitIsFriend|UnitAffectingCombat|UnitBuff|UnitDebuff|UnitAura|UnitCastingInfo|UnitChannelInfo"
-               r"|GetNumGroupMembers|IsInRaid|IsInGroup|IsInInstance|GetInstanceInfo|GetRealZoneText|GetSubZoneText|GetZoneText"
-               r"|GetContainerNumSlots|GetContainerItemInfo|GetContainerItemLink|UseContainerItem|PickupContainerItem"
-               r"|GetTime|debugprofilestop|GetCursorPosition|GetScreenWidth|GetScreenHeight"
-               r"|SendChatMessage|SendAddonMessage|RegisterAddonMessagePrefix|C_ChatInfo"
-               r"|C_Timer|C_Spell|C_Item|C_Map|C_MythicPlus|C_ChallengeMode|C_EncounterJournal|C_LFGList|C_Calendar|C_Club|C_Garrison|C_MountJournal|C_PetJournal|C_AchievementInfo|C_QuestLog|C_GossipInfo|C_TradeSkillUI|C_TransmogCollection|C_Covenants|C_Soulbinds|C_WeeklyRewards"
-               r"|hooksecurefunc|securecall|issecurevariable|InCombatLockdown|RegisterEvent|UnregisterEvent|RegisterAllEvents|SetScript|HookScript|GetScript"
-               r"|CreateMacro|GetMacroInfo|EditMacro|DeleteMacro"
-               r"|SLASH_\w+|BINDING_HEADER_\w+|BINDING_NAME_\w+)\b"),
+        ("bi", r"\b(?:nil|true|false|self|print|pairs|ipairs|next|type|tostring|tonumber|unpack|select|error|pcall|xpcall|assert|require|setmetatable|getmetatable|rawget|rawset|rawequal|rawlen"
+               r"|table\.(?:insert|remove|sort|concat|wipe|getn|setn|move|pack|unpack)"
+               r"|string\.(?:format|find|match|gmatch|gsub|sub|len|byte|char|rep|reverse|upper|lower|trim|split|join)"
+               r"|math\.(?:floor|ceil|abs|min|max|random|randomseed|sqrt|sin|cos|tan|log|exp|huge|pi)"
+               r"|bit\.(?:band|bor|bxor|bnot|lshift|rshift)"
+               r"|coroutine\.(?:create|resume|yield|status|wrap|running)"
+               r"|table|string|math|bit|coroutine|debug|io|os"
+               r"|wipe|tinsert|tremove|tContains|CopyTable|Mixin|CreateFromMixins|CreateAndInitFromMixin"
+               r"|strsplit|strtrim|strsub|strlen|strfind|strmatch|strjoin|strrep|strupper|strlower|strbyte|strchar|strrev|strlenutf8|format|date|time|difftime"
+               r"|_G|_VERSION|__index|__newindex|__call|__tostring|__add|__sub|__mul|__div|__mod|__pow|__unm|__concat|__len|__eq|__lt|__le|__gc|__mode)\b"),
+        # WoW API: Pattern-based matching for all major API families
+        ("typ", r"\b(?:"
+               # C_ Namespaces (catches ALL C_ APIs automatically)
+               r"C_\w+"
+               # Unit functions (Unit*)
+               r"|Unit\w+"
+               # Frame creation & globals
+               r"|CreateFrame|UIParent|WorldFrame|GameTooltip|GameTooltipTextLeft\d*|GameTooltipTextRight\d*|ItemRefTooltip|ShoppingTooltip[12]?"
+               r"|UISpecialFrames|SlashCmdList|StaticPopupDialogs|StaticPopup_Show|StaticPopup_Hide"
+               r"|InterfaceOptionsFrame|SettingsPanel|Settings\.RegisterAddOnCategory|Settings\.RegisterCanvasLayoutCategory|Settings\.RegisterCanvasLayoutSubcategory"
+               r"|DEFAULT_CHAT_FRAME|ChatFrame\d*|SELECTED_CHAT_FRAME"
+               # Libraries (Ace3, LibStub, CallbackHandler, etc.)
+               r"|LibStub|AceAddon|AceDB|AceDBOptions|AceEvent|AceConsole|AceHook|AceTimer|AceComm|AceSerializer|AceLocale|AceGUI|AceConfig|AceConfigDialog|AceConfigRegistry|AceConfigCmd"
+               r"|CallbackHandler|LibDataBroker|LibDBIcon|LibSharedMedia|LibDualSpec|LibQTip|LibCompress|LibDeflate|LibSerialize"
+               # Spell/Aura
+               r"|GetSpell\w+|GetAura\w+|CastSpell\w+|IsSpell\w+|FindSpell\w+|IsUsableSpell|IsHarmfulSpell|IsHelpfulSpell|GetShapeshiftForm\w*"
+               r"|CombatLogGetCurrentEventInfo|CombatLog_Object_Is\w+"
+               # Item/Inventory/Equipment
+               r"|GetItem\w+|GetInventory\w+|GetContainer\w+|UseContainerItem|PickupContainerItem|EquipItemByName|IsEquippableItem|IsEquippedItem\w*|GetEquipmentSetInfo\w*"
+               r"|GetCoinTextureString|GetMoneyString|GetMoney|BreakUpLargeNumbers"
+               # Action Bar
+               r"|GetAction\w+|IsUsableAction|IsCurrentAction|IsAutoRepeatAction|IsAttackAction|IsConsumableAction|HasAction|PickupAction|PlaceAction|GetBonusBarOffset"
+               # Talent/Spec
+               r"|GetSpecialization\w*|GetTalent\w+|GetNumSpecializations\w*|GetActiveSpecGroup"
+               # Group/Raid
+               r"|GetNumGroupMembers|GetNumSubgroups|GetRaidRosterInfo|IsInRaid|IsInGroup|IsInInstance|GetInstanceInfo|GetDungeonDifficultyID|GetRaidDifficultyID"
+               r"|GetRealZoneText|GetSubZoneText|GetZoneText|GetMinimapZoneText"
+               # Player info
+               r"|GetPlayer\w+|GetRealmName|GetNormalizedRealmName|GetServerTime|GetGameTime|GetSessionTime"
+               # Communication
+               r"|SendChatMessage|SendAddonMessage|RegisterAddonMessagePrefix|JoinChannelByName|LeaveChannelByName|GetChannelName|ListChannelByName|SendSystemMessage"
+               # Secure functions & combat lockdown
+               r"|hooksecurefunc|securecall|securecallfunction|issecurevariable|issecure|forceinsecure|InCombatLockdown|UnitAffectingCombat"
+               # Frame methods (widget API)
+               r"|RegisterEvent|UnregisterEvent|RegisterAllEvents|UnregisterAllEvents|RegisterUnitEvent|IsEventRegistered"
+               r"|SetScript|HookScript|GetScript|HasScript"
+               r"|SetPoint|SetAllPoints|ClearAllPoints|GetPoint|GetNumPoints|SetSize|SetWidth|SetHeight|GetWidth|GetHeight|GetSize|GetRect|GetCenter|GetLeft|GetRight|GetTop|GetBottom|GetBoundsRect"
+               r"|Show|Hide|SetShown|IsShown|IsVisible|SetAlpha|GetAlpha|SetScale|GetScale|GetEffectiveScale|GetEffectiveAlpha"
+               r"|SetParent|GetParent|GetChildren|GetNumChildren|GetRegions|GetNumRegions|GetName|GetObjectType|IsObjectType"
+               r"|SetFrameStrata|GetFrameStrata|SetFrameLevel|GetFrameLevel|SetToplevel|Raise|Lower"
+               r"|EnableMouse|EnableMouseWheel|EnableKeyboard|SetMovable|SetResizable|SetClampedToScreen|SetClampRectInsets|StartMoving|StopMovingOrSizing|IsMovable|IsClamped"
+               r"|SetBackdrop|SetBackdropColor|SetBackdropBorderColor|GetBackdrop|GetBackdropColor|GetBackdropBorderColor"
+               r"|SetText|GetText|SetTextColor|GetTextColor|SetFont|GetFont|SetFontObject|GetFontObject|SetJustifyH|SetJustifyV|SetWordWrap|SetNonSpaceWrap|SetMaxLetters|GetMaxLetters|SetTextInsets"
+               r"|SetTexture|GetTexture|SetTexCoord|GetTexCoord|SetVertexColor|GetVertexColor|SetDesaturated|SetBlendMode|SetRotation|SetAtlas|GetAtlas|SetColorTexture|SetGradient"
+               r"|SetValue|GetValue|SetMinMaxValues|GetMinMaxValues|SetStatusBarTexture|SetStatusBarColor|GetStatusBarColor|SetReverseFill|SetFillStyle"
+               r"|SetModel|SetDisplayInfo|SetCreature|SetUnit|SetItem|SetPortraitZoom|SetCamera|SetPosition|SetFacing|SetLight|SetSequence"
+               r"|SetCooldown|SetSwipeTexture|SetSwipeColor|SetDrawSwipe|SetDrawBling|SetDrawEdge|SetEdgeTexture|SetBlingTexture"
+               r"|ScrollToBottom|ScrollToTop|SetScrollChild|GetScrollChild|GetVerticalScroll|GetVerticalScrollRange|SetVerticalScroll|UpdateScrollChildRect"
+               r"|AddMessage|SetMaxLines|SetFading|SetFadeDuration|SetTimeVisible|SetInsertMode"
+               r"|SetFocus|ClearFocus|HasFocus|SetAutoFocus|SetMultiLine|SetNumeric|SetPassword|SetCountInvisibleLetters|HighlightText|GetCursorPosition|SetCursorPosition|Insert"
+               # Macro
+               r"|CreateMacro|GetMacro\w*|EditMacro|DeleteMacro|GetNumMacros|RunMacro|RunMacroText"
+               # Tooltip methods
+               r"|SetOwner|SetHyperlink|SetBagItem|SetInventoryItem|SetAction|SetSpellByID|SetItemByID|SetUnitBuff|SetUnitDebuff|SetUnitAura|SetRecipeResultItem|SetToyByItemID|SetMountBySpellID|SetCompanionPet|SetPetAction|SetCurrencyByID|SetCurrencyToken|SetQuestItem|SetQuestLogItem|AddLine|AddDoubleLine|ClearLines|FadeOut"
+               # Minimap & Map
+               r"|GetPlayerMapPosition|GetCursorPosition|GetScreenWidth|GetScreenHeight|GetPhysicalScreenSize|Minimap"
+               # Sound & Music
+               r"|PlaySound|PlaySoundFile|StopSound|PlayMusic|StopMusic|SetCVar|GetCVar|GetCVarBool|GetCVarDefault"
+               # Nameplate
+               r"|GetNamePlate\w*|GetNamePlates"
+               # Animation system
+               r"|CreateAnimationGroup|SetDuration|SetSmoothing|SetOrder|SetFromAlpha|SetToAlpha|SetFromScale|SetToScale|SetOffset|Play|Stop|Pause|Finish|IsPlaying|IsStopped|IsPaused"
+               # Global utility
+               r"|GetTime|debugprofilestop|GetTimePreciseSec|date|time|difftime|debugstack|geterrorhandler|seterrorhandler"
+               r"|GetLocale|GetAddOnInfo|GetAddOnMetadata|GetNumAddOns|IsAddOnLoaded|LoadAddOn|EnableAddOn|DisableAddOn"
+               r"|GetBuildInfo|GetCurrentRegion|IsOnGlueScreen|IsLoggedIn|IsTrialAccount|IsTrial|IsVeteranTrialAccount|InGlue"
+               r"|CreateColor|CreateColorFromHexString|CreateVector2D|CreateVector3D"
+               r"|FramePool_GetOrCreateFrame|CreateFramePool|CreateObjectPool|CreateTexturePool|CreateFontStringPool"
+               r"|Enum|BackdropTemplateMixin|NineSlicePanelMixin|PixelUtil|Clamp|ClampedPercentageBetween|Lerp|PercentageBetween|Saturate|Round|Wrap"
+               # Popular addon frameworks
+               r"|WeakAuras|ElvUI|oUF|BigWigs\w*|DBM\w*|Details\w*|Plater\w*|TotalRP3\w*|Bagnon\w*|AdiBags\w*"
+               # Slash & Binding globals
+               r"|SLASH_\w+|BINDING_HEADER_\w+|BINDING_NAME_\w+|FONT_COLOR_CODE_CLOSE|HIGHLIGHT_FONT_COLOR_CODE|NORMAL_FONT_COLOR_CODE|RED_FONT_COLOR_CODE|GREEN_FONT_COLOR_CODE"
+               r")\b"),
         ("fn", r"(?<=function )\w[\w.:]*"),
-        ("dec", r"\b(?:PLAYER_LOGIN|PLAYER_ENTERING_WORLD|PLAYER_LEAVING_WORLD|COMBAT_LOG_EVENT_UNFILTERED|CHAT_MSG_\w+|UNIT_HEALTH|UNIT_POWER_UPDATE|UNIT_AURA|SPELL_CAST_\w+|GROUP_ROSTER_UPDATE|ZONE_CHANGED\w*|BAG_UPDATE|PLAYER_REGEN_\w+|ADDON_LOADED|VARIABLES_LOADED|PLAYER_LOGOUT|ENCOUNTER_\w+|CHALLENGE_MODE_\w+|MYTHIC_PLUS_\w+|ACTIONBAR_\w+|QUEST_\w+|GOSSIP_\w+|TRADE_SKILL_\w+|AUCTION_HOUSE_\w+|LFG_\w+)\b"),
+        # WoW Events (pattern-based: catches most event names)
+        ("dec", r"\b(?:"
+               r"PLAYER_\w+|UNIT_\w+|SPELL_\w+|COMBAT_\w+|CHAT_MSG_\w+|GROUP_\w+|RAID_\w+|PARTY_\w+"
+               r"|ZONE_\w+|AREA_\w+|WORLD_\w+|INSTANCE_\w+|ENCOUNTER_\w+"
+               r"|BAG_\w+|ITEM_\w+|EQUIPMENT_\w+|BANKFRAME_\w+|PLAYERBANKSLOTS_CHANGED|PLAYERBANKBAGSLOTS_CHANGED"
+               r"|QUEST_\w+|GOSSIP_\w+|TRADE_SKILL_\w+|CRAFT_\w+"
+               r"|ACTIONBAR_\w+|UPDATE_\w+|CURSOR_\w+|MODIFIER_STATE_CHANGED"
+               r"|CHALLENGE_MODE_\w+|MYTHIC_PLUS_\w+|MYTHIC_DUNGEON_\w+"
+               r"|LFG_\w+|LFG_LIST_\w+|LFG_PROPOSAL_\w+"
+               r"|AUCTION_HOUSE_\w+|AUCTION_\w+"
+               r"|GUILD_\w+|CLUB_\w+|COMMUNITY_\w+"
+               r"|ACHIEVEMENT_\w+|CRITERIA_\w+"
+               r"|PVP_\w+|ARENA_\w+|BATTLEGROUND_\w+|BATTLEFIELD_\w+|HONOR_\w+"
+               r"|PET_\w+|COMPANION_\w+|MOUNT_\w+"
+               r"|TRANSMOG_\w+|TRANSMOGRIFY_\w+|HEIRLOOM_\w+|TOY_\w+"
+               r"|GARRISON_\w+|SHIPMENT_\w+|ORDER_HALL_\w+"
+               r"|COVENANT_\w+|SOULBIND_\w+|CONDUIT_\w+"
+               r"|ADDON_LOADED|VARIABLES_LOADED|SAVED_VARIABLES_TOO_LARGE"
+               r"|LOADING_SCREEN_\w+|DISPLAY_SIZE_CHANGED|UI_SCALE_CHANGED|CVAR_UPDATE"
+               r"|LOOT_\w+|BONUS_ROLL_\w+|SHOW_LOOT_TOAST\w*"
+               r"|MAIL_\w+|CALENDAR_\w+|VOICE_\w+"
+               r"|NAME_PLATE_\w+|FORBIDDEN_NAME_PLATE_\w+"
+               r"|MINIMAP_\w+|WORLD_MAP_\w+"
+               r"|TALENT_\w+|ACTIVE_TALENT_GROUP_CHANGED|PLAYER_TALENT_UPDATE|TRAIT_\w+"
+               r"|CURRENCY_\w+|TOKEN_\w+"
+               r"|CINEMATIC_\w+|MOVIE_\w+|PLAY_MOVIE|STOP_MOVIE"
+               r"|MERCHANT_\w+|TRAINER_\w+|REPAIR_\w+"
+               r"|BARBER_SHOP_\w+|DRESSING_ROOM_\w+"
+               r"|CHAT_\w+|LANGUAGE_\w+|CHANNEL_\w+"
+               r")\b"),
         ("num", r"\b\d+\.?\d*(?:e[+-]?\d+)?\b|0x[0-9a-fA-F]+\b"),
     ],
     "wowxml": [
@@ -260,7 +362,16 @@ _HIGHLIGHT_RULES = {
         ("str", r'"[^"]*"|\'[^\']*\''),
         ("tag", r"</?[\w-]+|/?>"),
         ("attr", r"\b[\w-]+(?==)"),
-        ("kw", r"\b(?:Ui|Frame|Button|FontString|Texture|StatusBar|ScrollFrame|EditBox|GameTooltip|Slider|CheckButton|ColorSelect|Model|PlayerModel|DressUpModel|Cooldown|MessageFrame|ScrollingMessageFrame|SimpleHTML|Minimap|WorldFrame|MovieFrame|Browser|UnitButton|ActionButton)\b"),
+        ("kw", r"\b(?:Ui|Frame|Button|FontString|Texture|StatusBar|ScrollFrame|EditBox|GameTooltip|Slider|CheckButton|ColorSelect"
+               r"|Model|PlayerModel|DressUpModel|Cooldown|MessageFrame|ScrollingMessageFrame|SimpleHTML"
+               r"|Minimap|WorldFrame|MovieFrame|Browser|UnitButton|ActionButton"
+               r"|AnimationGroup|Animation|Alpha|Scale|Translation|Rotation|Path|LineScale|LineTranslation"
+               r"|Scripts|OnLoad|OnEvent|OnUpdate|OnShow|OnHide|OnClick|OnEnter|OnLeave|OnDragStart|OnDragStop|OnReceiveDrag|OnMouseDown|OnMouseUp|OnMouseWheel"
+               r"|Anchors|Anchor|Size|AbsDimension|RelDimension|Offset|Color|Gradient|MinColor|MaxColor|TexCoords"
+               r"|Layers|Layer|Frames|KeyValues|KeyValue"
+               r"|Backdrop|BackdropPieces|EdgeFile|BgFile|Insets"
+               r"|FontHeight|Shadow|NormalTexture|PushedTexture|HighlightTexture|DisabledTexture|CheckedTexture"
+               r"|Include|Script|BarTexture|BarColor|ThumbTexture)\b"),
     ],
 }
 
