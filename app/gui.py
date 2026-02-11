@@ -967,11 +967,7 @@ def markdown_to_html(text: str, msg_index: int = -1) -> str:
 def _build_message_html(role: str, content: str, time_str: str, streaming: bool = False, msg_index: int = -1, images: list[str] | None = None, rating: int = 0) -> str:
     """Build HTML for a single chat message — Apple iMessage-inspired."""
     t = _tc()
-    pr = t["primary_rgb"]
-    pl = t["primary_light"]
     p = t["primary"]
-    ar = t["accent_rgb"]
-    ac = t["accent"]
     img_html = ""
     if images:
         for b64 in images:
@@ -1081,6 +1077,7 @@ WELCOME_HTML = """
 class OllamaCheckWorker(QThread):
     """Non-blocking Ollama connectivity check."""
     result = pyqtSignal(bool, int)
+    models_loaded = pyqtSignal(list)  # Liste der verfuegbaren Modell-Namen
 
     def __init__(self, client: OllamaClient):
         super().__init__()
@@ -1088,8 +1085,10 @@ class OllamaCheckWorker(QThread):
 
     def run(self):
         available = self.client.is_available()
-        count = len(self.client.list_models()) if available else 0
-        self.result.emit(available, count)
+        models = self.client.list_models() if available else []
+        self.result.emit(available, len(models))
+        if models:
+            self.models_loaded.emit(models)
 
 
 class StreamWorker(QThread):
@@ -2182,11 +2181,12 @@ class MainWindow(QMainWindow):
         self._title_worker: TitleWorker | None = None
         self._pending_images: list[str] = []  # base64 images for next message
 
-        # Batched streaming render timer
+        # Batched streaming render timer (80ms = ~12.5 FPS, smooth enough + less CPU)
         self._render_timer = QTimer()
-        self._render_timer.setInterval(50)
+        self._render_timer.setInterval(80)
         self._render_timer.timeout.connect(self._flush_streaming_render)
         self._pending_tokens = False
+        self._last_rendered_chunk_count = 0
 
         # Debounced search timer
         self._search_timer = QTimer()
@@ -2262,6 +2262,7 @@ class MainWindow(QMainWindow):
         old_worker = self._check_worker
         self._check_worker = OllamaCheckWorker(self.client)
         self._check_worker.result.connect(self._on_ollama_check)
+        self._check_worker.models_loaded.connect(self._on_models_loaded)
         self._check_worker.finished.connect(self._check_worker.deleteLater)
         self._check_worker.start()
         if old_worker:
@@ -2301,6 +2302,22 @@ class MainWindow(QMainWindow):
             )
             self.status_label.setStyleSheet("color: #30d158;")
         self._update_model_label()
+
+    def _on_models_loaded(self, models: list):
+        """Warn if current session model is not available."""
+        if not self.current_session or not models:
+            return
+        current_model = self.current_session.model
+        if current_model and current_model not in models:
+            self.model_label.setStyleSheet("color: #ff9f0a;")
+            self.model_label.setToolTip(
+                f"Modell '{current_model}' nicht gefunden!\n"
+                f"Verfuegbar: {', '.join(models[:5])}"
+                + (f" (+{len(models)-5} weitere)" if len(models) > 5 else "")
+            )
+        else:
+            self.model_label.setStyleSheet("color: #86868b;")
+            self.model_label.setToolTip("")
 
     def _on_auto_start_done(self, success: bool, msg: str):
         if success:
@@ -2669,13 +2686,30 @@ class MainWindow(QMainWindow):
 
     # --- Image handling ---
 
+    _MAX_IMAGE_DIMENSION = 2048  # Max Breite/Hoehe in Pixel
+    _MAX_IMAGE_BYTES = 20 * 1024 * 1024  # 20 MB base64-Limit
+
+    def _resize_image_if_needed(self, img: QImage) -> QImage:
+        """Resize image if it exceeds max dimensions."""
+        w, h = img.width(), img.height()
+        max_dim = self._MAX_IMAGE_DIMENSION
+        if w > max_dim or h > max_dim:
+            img = img.scaled(max_dim, max_dim, Qt.AspectRatioMode.KeepAspectRatio,
+                             Qt.TransformationMode.SmoothTransformation)
+        return img
+
     def _add_image_from_qimage(self, img: QImage):
         """Convert QImage to base64 and add to pending images."""
+        img = self._resize_image_if_needed(img)
         buf = QBuffer()
         buf.open(QIODevice.OpenModeFlag.WriteOnly)
         img.save(buf, "PNG")
-        b64 = base64.b64encode(buf.data().data()).decode("ascii")
+        raw = buf.data().data()
         buf.close()
+        if len(raw) > self._MAX_IMAGE_BYTES:
+            self._show_temp_status("Bild zu gross (max 20 MB)!", "#ff453a", 3000)
+            return
+        b64 = base64.b64encode(raw).decode("ascii")
         self._pending_images.append(b64)
         count = len(self._pending_images)
         self.status_label.setText(f"{count} Bild(er) angehängt")
@@ -2685,8 +2719,20 @@ class MainWindow(QMainWindow):
     def _add_image_from_path(self, path: Path):
         """Load image file and add to pending images."""
         try:
-            data = path.read_bytes()
-            b64 = base64.b64encode(data).decode("ascii")
+            img = QImage(str(path))
+            if img.isNull():
+                self._show_temp_status(f"Bild konnte nicht gelesen werden: {path.name}", "#ff453a", 3000)
+                return
+            img = self._resize_image_if_needed(img)
+            buf = QBuffer()
+            buf.open(QIODevice.OpenModeFlag.WriteOnly)
+            img.save(buf, "PNG")
+            raw = buf.data().data()
+            buf.close()
+            if len(raw) > self._MAX_IMAGE_BYTES:
+                self._show_temp_status("Bild zu gross (max 20 MB)!", "#ff453a", 3000)
+                return
+            b64 = base64.b64encode(raw).decode("ascii")
             self._pending_images.append(b64)
             self._update_image_label()
             self.status_label.setText(f"{len(self._pending_images)} Bild(er) angehängt")
@@ -3014,7 +3060,7 @@ class MainWindow(QMainWindow):
     # --- Session management ---
 
     def load_sessions(self):
-        loaded = ChatSession.load_all()
+        loaded = ChatSession.load_all(lazy=True)
         if loaded:
             self.sessions = loaded
             mode_names = ["newest", "oldest", "name_az", "name_za", "most_msgs"]
@@ -3028,7 +3074,7 @@ class MainWindow(QMainWindow):
             self.new_session()
 
     def _session_label(self, s: ChatSession) -> str:
-        msg_count = len(s.messages)
+        msg_count = s.message_count
         pin = "[PIN] " if s.pinned else ""
         folder = f"[{s.folder}] " if s.folder else ""
         label = f"{pin}{folder}{s.name}  ({msg_count})" if msg_count else f"{pin}{folder}{s.name}"
@@ -3075,6 +3121,7 @@ class MainWindow(QMainWindow):
                 self.status_label.setStyleSheet("color: #ff9f0a;")
                 return
             self.current_session = self.sessions[row]
+            self.current_session.ensure_messages_loaded()
             self._cached_history_html = ""
             self.render_chat()
             self._update_counters()
@@ -3299,7 +3346,7 @@ class MainWindow(QMainWindow):
             1: lambda s: s.created_at,       # Älteste zuerst
             2: lambda s: s.name.lower(),     # Name A-Z
             3: lambda s: s.name.lower(),     # Name Z-A (reverse)
-            4: lambda s: len(s.messages),    # Meiste Nachrichten (reverse)
+            4: lambda s: s.message_count,     # Meiste Nachrichten (reverse)
         }
         key_fn = sort_map.get(index, sort_map[0])
         reverse = index in (0, 3, 4)
@@ -3398,6 +3445,11 @@ class MainWindow(QMainWindow):
         if self._auto_scroll:
             self.scroll_to_bottom()
 
+    def _is_near_bottom(self) -> bool:
+        """Check if user is scrolled near bottom (within 60px)."""
+        sb = self.chat_display.verticalScrollBar()
+        return sb.value() >= sb.maximum() - 60
+
     def scroll_to_bottom(self):
         sb = self.chat_display.verticalScrollBar()
         sb.setValue(sb.maximum())
@@ -3405,6 +3457,8 @@ class MainWindow(QMainWindow):
     def _render_with_streaming(self):
         if not self.current_session:
             return
+        # Merke ob User nah am Ende ist BEVOR neuer HTML geladen wird
+        should_scroll = self._auto_scroll and self._is_near_bottom()
         streaming_text = "".join(self._streaming_chunks)
         time_str = datetime.now().strftime("%H:%M")
         streaming_html = _build_message_html("assistant", streaming_text, time_str, streaming=True)
@@ -3416,7 +3470,7 @@ class MainWindow(QMainWindow):
             + streaming_html
             + '</div>'
         )
-        if self._auto_scroll:
+        if should_scroll:
             self.scroll_to_bottom()
 
     def append_streaming_token(self, token: str):
@@ -3426,6 +3480,11 @@ class MainWindow(QMainWindow):
     def _flush_streaming_render(self):
         if self._pending_tokens:
             self._pending_tokens = False
+            # Nur rendern wenn tatsaechlich neue Chunks dazukamen
+            chunk_count = len(self._streaming_chunks)
+            if chunk_count == self._last_rendered_chunk_count:
+                return
+            self._last_rendered_chunk_count = chunk_count
             self._render_with_streaming()
             # Live tokens/sec during streaming
             token_count = len(self._streaming_chunks)
@@ -3496,6 +3555,7 @@ class MainWindow(QMainWindow):
             return
         if self.stream_worker and self.stream_worker.isRunning():
             return
+        self.current_session.ensure_messages_loaded()
 
         images = self._pending_images.copy()
         self._clear_pending_images()
@@ -3517,13 +3577,14 @@ class MainWindow(QMainWindow):
     def _start_streaming(self):
         self._streaming_chunks = []
         self._pending_tokens = False
+        self._last_rendered_chunk_count = 0
         self._cached_history_html = self._build_history_html()
         self._cached_header_html = self._build_chat_header()
         self._stream_start_time = time.monotonic()
         self.send_btn.setVisible(False)
         self.stop_btn.setVisible(True)
         self.regen_btn.setVisible(False)
-        self.copy_last_btn.setVisible(False)
+        self.copy_last_btn.setVisible(True)  # Erlaubt Kopieren waehrend Streaming
         self.edit_last_btn.setVisible(False)
         self.input_field.setEnabled(False)
         self.status_label.setText("KI denkt nach...")
@@ -3679,6 +3740,16 @@ class MainWindow(QMainWindow):
 
     def copy_last_response(self):
         if not self.current_session:
+            return
+        # Waehrend Streaming: aktuelle Teilantwort kopieren
+        if self._streaming_chunks and self.stream_worker and self.stream_worker.isRunning():
+            text = "".join(self._streaming_chunks)
+            if text.strip():
+                clipboard = QApplication.clipboard()
+                if clipboard:
+                    clipboard.setText(text)
+                    self.copy_last_btn.setText("Kopiert!")
+                    QTimer.singleShot(1500, lambda: self.copy_last_btn.setText("Letzte Antwort kopieren"))
             return
         for msg in reversed(self.current_session.messages):
             if msg.role == "assistant":

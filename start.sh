@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+# Kein set -e: Nicht-kritische Fehler (z.B. ollama pull) sollen Script nicht abbrechen
 
 # ============================================
 #  Unzensierter KI Chat - Auto-Starter

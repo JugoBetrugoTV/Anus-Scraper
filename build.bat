@@ -48,7 +48,13 @@ if %errorlevel% neq 0 (
 )
 
 echo  [*] Baue Executable...
-"%PYPYTHON%" -m PyInstaller --onefile --name "KI-Chat" --windowed --clean "%BASEDIR%main.py"
+"%PYPYTHON%" -m PyInstaller --onefile --name "KI-Chat" --windowed --clean ^
+    --hidden-import=PyQt6.sip ^
+    --hidden-import=PyQt6.QtCore ^
+    --hidden-import=PyQt6.QtGui ^
+    --hidden-import=PyQt6.QtWidgets ^
+    --add-data "%BASEDIR%app;app" ^
+    "%BASEDIR%main.py"
 if %errorlevel% neq 0 (
     echo  [FEHLER] Build fehlgeschlagen!
     pause

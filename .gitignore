@@ -8,7 +8,7 @@ dist/
 *.egg-info/
 *.egg
 *.spec
-!PreisHai.spec
+!KI-Chat.spec
 .env
 .venv
 venv/

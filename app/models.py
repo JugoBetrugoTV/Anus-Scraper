@@ -144,8 +144,10 @@ class ChatSession:
             "messages": [m.to_dict() for m in self.messages],
         }
 
+    _messages_loaded: bool = field(default=True, repr=False)
+
     @classmethod
-    def from_dict(cls, data: dict) -> "ChatSession":
+    def from_dict(cls, data: dict, load_messages: bool = True) -> "ChatSession":
         ca = data.get("created_at", "")
         try:
             created_at = datetime.fromisoformat(ca) if ca else datetime.now()
@@ -161,14 +163,46 @@ class ChatSession:
             pinned=data.get("pinned", False),
             folder=data.get("folder", ""),
         )
-        messages = []
-        for m in data.get("messages", []):
-            try:
-                messages.append(Message.from_dict(m))
-            except Exception as e:
-                _log.warning("Nachricht konnte nicht geladen werden: %s", e)
-        session.messages = messages
+        if load_messages:
+            messages = []
+            for m in data.get("messages", []):
+                try:
+                    messages.append(Message.from_dict(m))
+                except Exception as e:
+                    _log.warning("Nachricht konnte nicht geladen werden: %s", e)
+            session.messages = messages
+            session._messages_loaded = True
+        else:
+            # Nur Nachrichten-Anzahl fuer Sidebar merken, nicht parsen
+            session._message_count_hint = len(data.get("messages", []))
+            session._messages_loaded = False
         return session
+
+    def ensure_messages_loaded(self):
+        """Load messages from disk if not yet loaded (lazy loading)."""
+        if self._messages_loaded:
+            return
+        path = SAVE_DIR / f"{self.session_id}.json"
+        if path.exists():
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+                messages = []
+                for m in data.get("messages", []):
+                    try:
+                        messages.append(Message.from_dict(m))
+                    except Exception as e:
+                        _log.warning("Nachricht konnte nicht geladen werden: %s", e)
+                self.messages = messages
+            except Exception as e:
+                _log.warning("Messages konnten nicht nachgeladen werden: %s", e)
+        self._messages_loaded = True
+
+    @property
+    def message_count(self) -> int:
+        """Return message count (works even if messages not yet loaded)."""
+        if self._messages_loaded:
+            return len(self.messages)
+        return getattr(self, "_message_count_hint", 0)
 
     def save(self):
         SAVE_DIR.mkdir(parents=True, exist_ok=True)
@@ -176,17 +210,18 @@ class ChatSession:
         path.write_text(json.dumps(self.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
 
     @classmethod
-    def load(cls, path: Path) -> "ChatSession":
+    def load(cls, path: Path, load_messages: bool = True) -> "ChatSession":
         data = json.loads(path.read_text(encoding="utf-8"))
-        return cls.from_dict(data)
+        return cls.from_dict(data, load_messages=load_messages)
 
     @classmethod
-    def load_all(cls) -> list["ChatSession"]:
+    def load_all(cls, lazy: bool = False) -> list["ChatSession"]:
+        """Load all sessions. If lazy=True, skip message parsing for faster startup."""
         SAVE_DIR.mkdir(parents=True, exist_ok=True)
         sessions = []
         for f in sorted(SAVE_DIR.glob("*.json")):
             try:
-                sessions.append(cls.load(f))
+                sessions.append(cls.load(f, load_messages=not lazy))
             except Exception as e:
                 _log.warning("Session-Datei konnte nicht geladen werden: %s (%s)", f.name, e)
                 continue
