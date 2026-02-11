@@ -35,6 +35,9 @@ def setup_logging():
             logging.StreamHandler(),
         ],
     )
+    # urllib3/requests Debug-Spam unterdruecken
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
 
 
 def main():

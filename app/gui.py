@@ -1108,8 +1108,10 @@ class StreamWorker(QThread):
 
     def run(self):
         chunks: list[str] = []
+        _log = logging.getLogger(__name__)
         try:
             messages = self.session.to_api_messages()
+            _log.info("StreamWorker: Sende %d Messages an Modell '%s'", len(messages), self.session.model)
             options = {"temperature": self.session.temperature}
             if self.num_predict > 0:
                 options["num_predict"] = self.num_predict
@@ -1122,15 +1124,20 @@ class StreamWorker(QThread):
                     "options": options,
                 },
                 stream=True,
-                timeout=(10, 300),
+                timeout=(30, 300),  # 30s connect-timeout (Modell-Loading kann dauern)
             )
             self._response.raise_for_status()
+            _log.info("StreamWorker: HTTP %d - Stream gestartet", self._response.status_code)
             try:
                 for line in self._response.iter_lines():
                     if self._stop:
                         break
                     if line:
-                        chunk = json.loads(line)
+                        try:
+                            chunk = json.loads(line)
+                        except json.JSONDecodeError:
+                            _log.debug("StreamWorker: Ungueltige JSON-Zeile: %s", line[:100])
+                            continue
                         token = chunk.get("message", {}).get("content", "")
                         if token:
                             chunks.append(token)
@@ -1141,9 +1148,11 @@ class StreamWorker(QThread):
                 self._response.close()
                 self._response = None
         except Exception as e:
+            _log.error("StreamWorker Fehler: %s", e)
             if not self._stop:
                 self.error_occurred.emit(str(e))
             return
+        _log.info("StreamWorker: Fertig, %d Chunks empfangen", len(chunks))
         self.finished_streaming.emit("".join(chunks))
 
     def stop(self):
@@ -3636,12 +3645,19 @@ class MainWindow(QMainWindow):
             )
             self.current_session.save()
             self._dirty_sessions.discard(self.current_session.session_id)
+        elif self.current_session and not full_response.strip():
+            # Leere Antwort - Warnung anzeigen
+            logging.getLogger(__name__).warning("Leere Antwort vom Modell erhalten")
         self.render_chat()
         self._update_counters()
         self._update_action_buttons()
         row = self.session_list.currentRow()
         self._update_session_list_item(row)
         self._reset_input_state()
+        if not full_response.strip():
+            self.status_label.setText("Leere Antwort! Modell laeuft evtl. noch nicht oder ist ueberlastet.")
+            self.status_label.setStyleSheet("color: #ff9f0a;")
+            return
         if token_count > 0 and elapsed > 0.1:
             tps = token_count / elapsed
             self.status_label.setText(f"Bereit | {token_count} tokens in {elapsed:.1f}s ({tps:.0f} t/s)")
