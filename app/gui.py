@@ -3,6 +3,7 @@
 import base64
 import html
 import json
+import logging
 import re
 import time
 from datetime import datetime
