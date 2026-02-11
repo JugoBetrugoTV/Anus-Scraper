@@ -3390,6 +3390,8 @@ class MainWindow(QMainWindow):
         self._autosave_timer.stop()
         self._reconnect_timer.stop()
         self._title_flash_timer.stop()
+        self._search_timer.stop()
+        self._render_timer.stop()
         # Save all dirty + non-empty sessions on exit
         for session in self.sessions:
             if session.messages:
