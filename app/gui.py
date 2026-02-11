@@ -124,6 +124,9 @@ QPushButton#secondary {
     background-color: #2c2c2e;
     color: #f5f5f7;
     border: none;
+    padding: 7px 12px;
+    font-size: 12px;
+    min-height: 18px;
 }
 QPushButton#secondary:hover {
     background-color: #3a3a3c;
@@ -481,13 +484,14 @@ def _build_message_html(role: str, content: str, time_str: str, streaming: bool 
         edit_link = f'<a href="action:edit:{msg_index}" style="{link_style}">Bearbeiten</a>'
         delete_link = f'<a href="action:delete:{msg_index}" style="{link_style}">Entfernen</a>'
         return (
-            f'<div style="margin:4px 0; padding:12px 16px; '
+            f'<div style="margin:12px 0; padding:14px 18px; '
             f'background:{p}; '
             f'border-radius:18px 18px 4px 18px; '
-            f'max-width:75%; margin-left:auto; text-align:right;">'
+            f'max-width:85%; margin-left:auto; text-align:right; '
+            f'word-wrap:break-word;">'
             f'{img_html}'
-            f'<span style="color:#ffffff; line-height:1.55; font-size:14px;">{rendered}</span>'
-            f'<div style="margin-top:6px; opacity:0.5; font-size:10px; color:#fff;">'
+            f'<div style="color:#ffffff; line-height:1.6; font-size:14px;">{rendered}</div>'
+            f'<div style="margin-top:8px; opacity:0.5; font-size:10px; color:#fff;">'
             f'{edit_link} &middot; {copy_link} &middot; {delete_link} &middot; {time_str}</div>'
             f'</div>'
         )
@@ -510,12 +514,12 @@ def _build_message_html(role: str, content: str, time_str: str, streaming: bool 
             delete_link = f'<a href="action:delete:{msg_index}" style="{link_style}">Entfernen</a>'
             action_links = f'{copy_link} &middot; {regen_link} &middot; {rate_link} &middot; {delete_link} &middot; {time_str}{rating_badge}'
         return (
-            f'<div style="margin:4px 0; padding:12px 16px; '
+            f'<div style="margin:12px 0; padding:14px 18px; '
             f'background:#1c1c1e; '
             f'border-radius:18px 18px 18px 4px; '
-            f'max-width:75%;">'
-            f'<span style="color:#f5f5f7; line-height:1.55; font-size:14px;">{rendered}</span>'
-            f'<div style="margin-top:6px; font-size:10px; color:#48484a;">{action_links}</div>'
+            f'max-width:85%; word-wrap:break-word;">'
+            f'<div style="color:#f5f5f7; line-height:1.6; font-size:14px;">{rendered}</div>'
+            f'<div style="margin-top:8px; font-size:10px; color:#48484a;">{action_links}</div>'
             f'</div>'
         )
 
@@ -1877,72 +1881,84 @@ class MainWindow(QMainWindow):
         self.session_list.customContextMenuRequested.connect(self._show_session_context_menu)
         sidebar_layout.addWidget(self.session_list, 1)
 
+        # --- Sidebar bottom buttons ---
+        sidebar_bottom = QWidget()
+        sidebar_bottom.setStyleSheet("background-color: transparent;")
+        sidebar_bottom_layout = QVBoxLayout(sidebar_bottom)
+        sidebar_bottom_layout.setContentsMargins(0, 8, 0, 0)
+        sidebar_bottom_layout.setSpacing(4)
+
         btn_settings = QPushButton("Einstellungen")
         btn_settings.setObjectName("secondary")
+        btn_settings.setMinimumHeight(32)
         btn_settings.clicked.connect(self.open_settings)
-        sidebar_layout.addWidget(btn_settings)
+        sidebar_bottom_layout.addWidget(btn_settings)
 
         btn_download = QPushButton("Modell laden")
         btn_download.setObjectName("secondary")
+        btn_download.setMinimumHeight(32)
         btn_download.clicked.connect(self.open_model_pull)
-        sidebar_layout.addWidget(btn_download)
+        sidebar_bottom_layout.addWidget(btn_download)
 
         btn_setup = QPushButton("Ollama Setup")
         btn_setup.setObjectName("secondary")
+        btn_setup.setMinimumHeight(32)
         btn_setup.clicked.connect(self.show_setup_wizard)
-        sidebar_layout.addWidget(btn_setup)
+        sidebar_bottom_layout.addWidget(btn_setup)
 
         sidebar_btn_row1 = QHBoxLayout()
+        sidebar_btn_row1.setSpacing(4)
         btn_import = QPushButton("Import")
         btn_import.setObjectName("secondary")
+        btn_import.setMinimumHeight(30)
         btn_import.clicked.connect(self.import_chat)
         sidebar_btn_row1.addWidget(btn_import)
         btn_duplicate = QPushButton("Duplizieren")
         btn_duplicate.setObjectName("secondary")
+        btn_duplicate.setMinimumHeight(30)
         btn_duplicate.clicked.connect(self.duplicate_session)
         sidebar_btn_row1.addWidget(btn_duplicate)
-        sidebar_layout.addLayout(sidebar_btn_row1)
+        sidebar_bottom_layout.addLayout(sidebar_btn_row1)
 
         export_row = QHBoxLayout()
-        btn_export_txt = QPushButton(".txt")
-        btn_export_txt.setObjectName("secondary")
-        btn_export_txt.clicked.connect(lambda: self.export_chat("txt"))
-        export_row.addWidget(btn_export_txt)
-        btn_export_json = QPushButton(".json")
-        btn_export_json.setObjectName("secondary")
-        btn_export_json.clicked.connect(lambda: self.export_chat("json"))
-        export_row.addWidget(btn_export_json)
-        btn_export_html = QPushButton(".html")
-        btn_export_html.setObjectName("secondary")
-        btn_export_html.clicked.connect(lambda: self.export_chat("html"))
-        export_row.addWidget(btn_export_html)
-        btn_export_md = QPushButton(".md")
-        btn_export_md.setObjectName("secondary")
-        btn_export_md.clicked.connect(lambda: self.export_chat("md"))
-        export_row.addWidget(btn_export_md)
-        sidebar_layout.addLayout(export_row)
+        export_row.setSpacing(4)
+        for label, fmt in [("TXT", "txt"), ("JSON", "json"), ("HTML", "html"), ("MD", "md")]:
+            btn = QPushButton(label)
+            btn.setObjectName("secondary")
+            btn.setMinimumHeight(28)
+            btn.clicked.connect(lambda checked, f=fmt: self.export_chat(f))
+            export_row.addWidget(btn)
+        sidebar_bottom_layout.addLayout(export_row)
 
         tools_row = QHBoxLayout()
+        tools_row.setSpacing(4)
         btn_stats = QPushButton("Statistiken")
         btn_stats.setObjectName("secondary")
+        btn_stats.setMinimumHeight(30)
         btn_stats.clicked.connect(self._show_stats)
         tools_row.addWidget(btn_stats)
         btn_shortcuts = QPushButton("Hilfe")
         btn_shortcuts.setObjectName("secondary")
+        btn_shortcuts.setMinimumHeight(30)
         btn_shortcuts.clicked.connect(self._show_shortcuts)
         tools_row.addWidget(btn_shortcuts)
-        sidebar_layout.addLayout(tools_row)
+        sidebar_bottom_layout.addLayout(tools_row)
 
         delete_row = QHBoxLayout()
+        delete_row.setSpacing(4)
         btn_clear = QPushButton("Leeren")
         btn_clear.setObjectName("secondary")
+        btn_clear.setMinimumHeight(30)
         btn_clear.clicked.connect(self.clear_chat)
         delete_row.addWidget(btn_clear)
         btn_delete = QPushButton("Löschen")
         btn_delete.setObjectName("danger")
+        btn_delete.setMinimumHeight(30)
         btn_delete.clicked.connect(self.delete_session)
         delete_row.addWidget(btn_delete)
-        sidebar_layout.addLayout(delete_row)
+        sidebar_bottom_layout.addLayout(delete_row)
+
+        sidebar_layout.addWidget(sidebar_bottom)
 
         # --- Chat area ---
         chat_area = QWidget()
@@ -2866,7 +2882,7 @@ class MainWindow(QMainWindow):
         self._cached_history_html = self._build_history_html()
         header = self._build_chat_header()
         self.chat_display.setHtml(
-            '<div style="padding: 16px 24px; max-width:720px; margin:0 auto; '
+            '<div style="padding: 20px 28px; max-width:900px; margin:0 auto; '
             'font-family:-apple-system,SF Pro Display,Helvetica Neue,Arial,sans-serif;">'
             + header
             + self._cached_history_html
@@ -2886,7 +2902,7 @@ class MainWindow(QMainWindow):
         time_str = datetime.now().strftime("%H:%M")
         streaming_html = _build_message_html("assistant", streaming_text, time_str, streaming=True)
         self.chat_display.setHtml(
-            '<div style="padding: 16px 24px; max-width:720px; margin:0 auto; '
+            '<div style="padding: 20px 28px; max-width:900px; margin:0 auto; '
             'font-family:-apple-system,SF Pro Display,Helvetica Neue,Arial,sans-serif;">'
             + self._cached_header_html
             + self._cached_history_html
