@@ -42,7 +42,7 @@ from app.ollama_manager import OllamaManager
 
 # --- Pre-compiled markdown regexes ---
 
-_RE_CODE_BLOCK = re.compile(r"```(\w*)\n(.*?)```", re.DOTALL)
+_RE_CODE_BLOCK = re.compile(r"```(\w*)\n?(.*?)```", re.DOTALL)
 _RE_INLINE_CODE = re.compile(r"`([^`]+)`")
 _RE_BOLD_STAR = re.compile(r"\*\*(.+?)\*\*")
 _RE_BOLD_UNDER = re.compile(r"__(.+?)__")
@@ -1984,6 +1984,7 @@ class GlobalSearchDialog(QDialog):
         self.result_list.clear()
         self._results = []
         for s in self.sessions:
+            s.ensure_messages_loaded()
             for m in s.messages:
                 if query in m.content.lower():
                     prefix = "Du" if m.role == "user" else "KI"
@@ -2018,6 +2019,8 @@ class ChatStatsDialog(QDialog):
         layout.addWidget(title)
 
         total_sessions = len(sessions)
+        for s in sessions:
+            s.ensure_messages_loaded()
         total_msgs = sum(len(s.messages) for s in sessions)
         total_user = sum(1 for s in sessions for m in s.messages if m.role == "user")
         total_ki = sum(1 for s in sessions for m in s.messages if m.role == "assistant")
@@ -2180,6 +2183,7 @@ class MainWindow(QMainWindow):
         self._start_worker: OllamaStartWorker | None = None
         self._title_worker: TitleWorker | None = None
         self._pending_images: list[str] = []  # base64 images for next message
+        self._context_trimmed_count: int = 0
 
         # Batched streaming render timer (80ms = ~12.5 FPS, smooth enough + less CPU)
         self._render_timer = QTimer()
@@ -2246,8 +2250,10 @@ class MainWindow(QMainWindow):
         if not self._dirty_sessions:
             return
         for session in self.sessions:
-            if session.session_id in self._dirty_sessions and session.messages:
-                session.save()
+            if session.session_id in self._dirty_sessions:
+                session.ensure_messages_loaded()
+                if session.messages:
+                    session.save()
         self._dirty_sessions.clear()
 
     def check_ollama_async(self):
@@ -2704,8 +2710,8 @@ class MainWindow(QMainWindow):
         buf = QBuffer()
         buf.open(QIODevice.OpenModeFlag.WriteOnly)
         img.save(buf, "PNG")
-        raw = buf.data().data()
         buf.close()
+        raw = bytes(buf.data())
         if len(raw) > self._MAX_IMAGE_BYTES:
             self._show_temp_status("Bild zu gross (max 20 MB)!", "#ff453a", 3000)
             return
@@ -2727,8 +2733,8 @@ class MainWindow(QMainWindow):
             buf = QBuffer()
             buf.open(QIODevice.OpenModeFlag.WriteOnly)
             img.save(buf, "PNG")
-            raw = buf.data().data()
             buf.close()
+            raw = bytes(buf.data())
             if len(raw) > self._MAX_IMAGE_BYTES:
                 self._show_temp_status("Bild zu gross (max 20 MB)!", "#ff453a", 3000)
                 return
@@ -3315,6 +3321,7 @@ class MainWindow(QMainWindow):
             # Search filter
             if query and not hidden:
                 name_match = query in s.name.lower()
+                s.ensure_messages_loaded()
                 content_match = any(query in m.content.lower() for m in s.messages)
                 if not name_match and not content_match:
                     hidden = True
@@ -3502,7 +3509,7 @@ class MainWindow(QMainWindow):
             total_chars = sum(len(m.content) for m in self.current_session.messages)
             total_words = sum(len(m.content.split()) for m in self.current_session.messages)
             pct = int(tokens / CONTEXT_HARD_LIMIT * 100) if CONTEXT_HARD_LIMIT else 0
-            trimmed = getattr(self, "_context_trimmed_count", 0)
+            trimmed = self._context_trimmed_count
             text = f"~{tokens:,} Tokens ({pct}%) | {total_words:,} Wörter | {total_chars:,} Zeichen"
             if trimmed > 0:
                 text += f" | {trimmed} getrimmt"
@@ -3545,7 +3552,7 @@ class MainWindow(QMainWindow):
                 self.current_session.messages.pop(0)
         removed = count_before - len(self.current_session.messages)
         if removed > 0:
-            self._context_trimmed_count = getattr(self, "_context_trimmed_count", 0) + removed
+            self._context_trimmed_count += removed
             self.status_label.setText(
                 f"{removed} alte Nachricht(en) entfernt (Kontextlimit: "
                 f"~{CONTEXT_HARD_LIMIT:,} Tokens)"
@@ -3604,12 +3611,12 @@ class MainWindow(QMainWindow):
         num_predict = int(settings.get("num_predict", 0))
         old_worker = self.stream_worker
         if old_worker:
-            try:
-                old_worker.token_received.disconnect()
-                old_worker.finished_streaming.disconnect()
-                old_worker.error_occurred.disconnect()
-            except (TypeError, RuntimeError):
-                pass
+            for sig in (old_worker.token_received, old_worker.finished_streaming,
+                        old_worker.error_occurred):
+                try:
+                    sig.disconnect()
+                except (TypeError, RuntimeError):
+                    pass
             old_worker.deleteLater()
         self.stream_worker = StreamWorker(self.client, self.current_session, num_predict=num_predict)
         self.stream_worker.token_received.connect(self.append_streaming_token)
