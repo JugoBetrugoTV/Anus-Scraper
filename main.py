@@ -60,8 +60,10 @@ def main():
     # Show setup wizard on first launch or if Ollama is not installed
     if not settings.get("setup_done") or not manager.is_installed():
         window.show_setup_wizard()
-        settings["setup_done"] = True
-        save_settings(settings)
+        # Only mark as done if Ollama is actually working now
+        if manager.is_installed() and manager.is_server_running():
+            settings["setup_done"] = True
+            save_settings(settings)
 
     logger.info("Application ready.")
     sys.exit(app.exec())

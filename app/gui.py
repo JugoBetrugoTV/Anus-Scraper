@@ -2177,8 +2177,8 @@ class MainWindow(QMainWindow):
             self._update_image_label()
             self.status_label.setText(f"{len(self._pending_images)} Bild(er) angehängt")
             self.status_label.setStyleSheet("color: #0a84ff;")
-        except Exception:
-            pass
+        except Exception as e:
+            self._show_temp_status(f"Bild konnte nicht geladen werden: {e}", "#ff453a", 3000)
 
     def _update_image_label(self):
         if self._pending_images:
@@ -2383,9 +2383,7 @@ class MainWindow(QMainWindow):
             clipboard = QApplication.clipboard()
             if clipboard:
                 clipboard.setText(msg.content)
-            self.status_label.setText("In Zwischenablage kopiert!")
-            self.status_label.setStyleSheet("color: #30d158;")
-            QTimer.singleShot(2000, lambda: self.status_label.setText("Bereit"))
+                self._show_temp_status("In Zwischenablage kopiert!", "#30d158")
         elif action == "copycode":
             try:
                 block_idx = int(parts[3]) if len(parts) > 3 else 0
@@ -2396,9 +2394,7 @@ class MainWindow(QMainWindow):
                 clipboard = QApplication.clipboard()
                 if clipboard:
                     clipboard.setText(blocks[block_idx])
-                self.status_label.setText("Code in Zwischenablage kopiert!")
-                self.status_label.setStyleSheet("color: #30d158;")
-                QTimer.singleShot(2000, lambda: self.status_label.setText("Bereit"))
+                    self._show_temp_status("Code in Zwischenablage kopiert!", "#30d158")
         elif action == "savecode":
             try:
                 block_idx = int(parts[3]) if len(parts) > 3 else 0
@@ -3169,10 +3165,26 @@ class MainWindow(QMainWindow):
                 clipboard = QApplication.clipboard()
                 if clipboard:
                     clipboard.setText(msg.content)
-                self.status_label.setText("In Zwischenablage kopiert!")
-                self.status_label.setStyleSheet("color: #30d158;")
-                QTimer.singleShot(2000, lambda: self.status_label.setText("Bereit"))
+                    self._show_temp_status("In Zwischenablage kopiert!", "#30d158")
                 break
+
+    def _show_temp_status(self, text: str, color: str = "#86868b", duration: int = 2000):
+        """Show a temporary status message that doesn't overwrite streaming info."""
+        if self.stream_worker and self.stream_worker.isRunning():
+            return  # Don't overwrite streaming status
+        self.status_label.setText(text)
+        self.status_label.setStyleSheet(f"color: {color};")
+        QTimer.singleShot(duration, self._restore_status)
+
+    def _restore_status(self):
+        """Restore status label to connection state."""
+        if self.stream_worker and self.stream_worker.isRunning():
+            return  # Don't overwrite streaming status
+        if self._ollama_connected:
+            self.check_ollama_async()
+        else:
+            self.status_label.setText("Bereit")
+            self.status_label.setStyleSheet("color: #86868b;")
 
     def edit_last_user_message(self):
         """Edit the last user message and regenerate."""
