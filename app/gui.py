@@ -5,6 +5,7 @@ import html
 import json
 import logging
 import re
+import requests
 import time
 from datetime import datetime
 from pathlib import Path
@@ -1101,7 +1102,9 @@ class StreamWorker(QThread):
 
     def __init__(self, client: OllamaClient, session: ChatSession, num_predict: int = 0):
         super().__init__()
-        self.client = client
+        # Eigene requests.Session - NICHT die vom Client teilen (nicht thread-safe!)
+        self._http = requests.Session()
+        self._base_url = client.base_url
         self.session = session
         self.num_predict = num_predict
         self._stop = False
@@ -1116,8 +1119,10 @@ class StreamWorker(QThread):
             options = {"temperature": self.session.temperature}
             if self.num_predict > 0:
                 options["num_predict"] = self.num_predict
-            self._response = self.client.session.post(
-                f"{self.client.base_url}/api/chat",
+            if self._stop:
+                return
+            self._response = self._http.post(
+                f"{self._base_url}/api/chat",
                 json={
                     "model": self.session.model,
                     "messages": messages,
@@ -1125,7 +1130,7 @@ class StreamWorker(QThread):
                     "options": options,
                 },
                 stream=True,
-                timeout=(30, 300),  # 30s connect-timeout (Modell-Loading kann dauern)
+                timeout=(60, 300),  # 60s connect (Modell-Loading kann lange dauern!)
             )
             self._response.raise_for_status()
             _log.info("StreamWorker: HTTP %d - Stream gestartet", self._response.status_code)
@@ -1153,6 +1158,12 @@ class StreamWorker(QThread):
             if not self._stop:
                 self.error_occurred.emit(str(e))
             return
+        finally:
+            # Eigene Session immer aufraeumen
+            try:
+                self._http.close()
+            except Exception:
+                pass
         _log.info("StreamWorker: Fertig, %d Chunks empfangen", len(chunks))
         self.finished_streaming.emit("".join(chunks))
 
@@ -3496,6 +3507,7 @@ class MainWindow(QMainWindow):
         self._pending_tokens = True
 
     def _flush_streaming_render(self):
+        elapsed = time.monotonic() - self._stream_start_time
         if self._pending_tokens:
             self._pending_tokens = False
             # Nur rendern wenn tatsaechlich neue Chunks dazukamen
@@ -3506,11 +3518,15 @@ class MainWindow(QMainWindow):
             self._render_with_streaming()
             # Live tokens/sec during streaming
             token_count = len(self._streaming_chunks)
-            elapsed = time.monotonic() - self._stream_start_time
             if elapsed > 0.5:
                 tps = token_count / elapsed
                 self.status_label.setText(f"KI schreibt... | {token_count} tokens | {tps:.0f} t/s")
                 self.status_label.setStyleSheet("color: #ff453a;")
+        elif elapsed > 3 and not self._streaming_chunks:
+            # Noch keine Tokens - Modell laedt wahrscheinlich
+            secs = int(elapsed)
+            self.status_label.setText(f"Modell laedt... {secs}s (Stopp = Escape)")
+            self.status_label.setStyleSheet("color: #ff9f0a;")
 
     def _update_counters(self):
         """Update token, word, and character counters."""
@@ -3614,7 +3630,7 @@ class MainWindow(QMainWindow):
         self.copy_last_btn.setVisible(True)  # Erlaubt Kopieren waehrend Streaming
         self.edit_last_btn.setVisible(False)
         self.input_field.setEnabled(False)
-        self.status_label.setText("KI denkt nach...")
+        self.status_label.setText("KI denkt nach... (erstes Laden kann 30-60s dauern)")
         self.status_label.setStyleSheet("color: #ff453a;")
 
         settings = load_settings()
